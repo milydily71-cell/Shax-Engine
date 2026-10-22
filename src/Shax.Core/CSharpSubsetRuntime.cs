@@ -35,7 +35,7 @@ public static class CSharpSubsetRuntime
             if (index >= 0)
             {
                 var (line, column) = Location(clean, index);
-                diagnostics.Add(new ScriptDiagnostic { Severity = ScriptDiagnosticSeverity.Error, Message = $"Sandbox blocked forbidden API/token '{token}'.", Line = line, Column = column });
+                diagnostics.Add(new ScriptDiagnostic("SHAX0001", $"Sandbox blocked forbidden API/token '{token}'.", line, column, ScriptDiagnosticSeverity.Error));
                 return new ScriptCompilationResult(null, diagnostics);
             }
         }
@@ -72,22 +72,17 @@ public static class CSharpSubsetRuntime
                 instructions.Add(new ScriptInstruction(kind, value, 0));
                 continue;
             }
-            diagnostics.Add(new ScriptDiagnostic
-            {
-                Severity = ScriptDiagnosticSeverity.Error,
-                Message = "Statement is outside the safe Shax subset. Allowed: Transform.Rotate(UnitX/Y/Z, speed * deltaTime), LocalPosition and LocalScale Vector3 assignments.",
-                Line = line, Column = column
-            });
+            diagnostics.Add(new ScriptDiagnostic("SHAX0002", "Statement is outside the safe Shax subset. Allowed: Transform.Rotate(UnitX/Y/Z, speed * deltaTime), LocalPosition and LocalScale Vector3 assignments.", line, column, ScriptDiagnosticSeverity.Error));
             return new ScriptCompilationResult(null, diagnostics);
         }
 
-        diagnostics.Add(new ScriptDiagnostic { Severity = ScriptDiagnosticSeverity.Info, Message = $"Safe behaviour compiled to {instructions.Count} allow-listed instruction(s); no IL/JIT assembly is loaded.", Line = 1, Column = 1 });
+        diagnostics.Add(new ScriptDiagnostic("SHAX0000", $"Safe behaviour compiled to {instructions.Count} allow-listed instruction(s); no IL/JIT assembly is loaded.", 1, 1, ScriptDiagnosticSeverity.Info));
         return new ScriptCompilationResult(new ScriptProgram(instructions), diagnostics);
     }
 
     private static float Parse(string value) => float.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture);
     private static ScriptCompilationResult Failure(string message, int line, int column) =>
-        new(null, new[] { new ScriptDiagnostic { Severity = ScriptDiagnosticSeverity.Error, Message = message, Line = line, Column = column } });
+        new(null, new[] { new ScriptDiagnostic("SHAX0001", message, line, column, ScriptDiagnosticSeverity.Error) });
 
     private static (int line, int column) Location(string source, int index)
     {
