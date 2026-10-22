@@ -25,6 +25,7 @@ public sealed class MainActivity : Activity
         Window?.SetFlags(WindowManagerFlags.KeepScreenOn, WindowManagerFlags.KeepScreenOn);
         _scene.CreateEntity("Cube");
         BuildEditorShell();
+        LoadScript();
     }
 
     private void BuildEditorShell()
@@ -80,6 +81,25 @@ public sealed class MainActivity : Activity
         var button = new Button(this) { Text = text, TextSize = 10 };
         button.SetOnClickListener(new ClickAction(action));
         parent.AddView(button, new LinearLayout.LayoutParams(-2, -1));
+    }
+
+    private void LoadScript()
+    {
+        try
+        {
+            using var stream = OpenFileInput("PlayerScript.cs");
+            using var reader = new System.IO.StreamReader(stream);
+            if (_scriptEditor != null) _scriptEditor.Text = reader.ReadToEnd();
+            if (_status != null) _status.Text = "Loaded PlayerScript.cs from app-private storage";
+        }
+        catch (Java.IO.FileNotFoundException)
+        {
+            // First launch: keep the starter script in the editor.
+        }
+        catch (Exception ex)
+        {
+            if (_status != null) _status.Text = "Load failed: " + ex.Message;
+        }
     }
 
     private void SaveScript()
