@@ -6,7 +6,7 @@ using Javax.Microedition.Khronos.Opengles;
 
 namespace Shax.Android;
 
-/// <summary>Initial viewport baseline. The driver version is queried for future ES 3.2 feature gating.</summary>
+/// <summary>Perspective mobile viewport with grid, cube, and GLES capability reporting.</summary>
 public sealed class ShaxViewport : GLSurfaceView
 {
     public ShaxViewport(Context context) : base(context)
@@ -22,6 +22,13 @@ public sealed class ShaxViewport : GLSurfaceView
         private int _program;
         private int _width = 1, _height = 1;
         private long _start;
+        private readonly float[] _projection = new float[16];
+        private readonly float[] _view = new float[16];
+        private readonly float[] _vp = new float[16];
+        private readonly float[] _model = new float[16];
+        private readonly float[] _mvp = new float[16];
+        private readonly float[] _cube = BuildCube();
+        private readonly float[] _grid = BuildGrid();
         private const string Vertex = "#version 300 es\nlayout(location=0) in vec3 aPosition; uniform mat4 uMvp; void main(){ gl_Position=uMvp*vec4(aPosition,1.0); }";
         private const string Fragment = "#version 300 es\nprecision mediump float; out vec4 color; uniform vec3 uColor; void main(){ color=vec4(uColor,1.0); }";
 
@@ -31,6 +38,7 @@ public sealed class ShaxViewport : GLSurfaceView
             Android.Util.Log.Info("ShaxEngine", "Viewport driver: " + version);
             _program = Link(Vertex, Fragment);
             GLES30.GlEnable(GLES30.GlDepthTest);
+            GLES30.GlDepthFunc(GLES30.GlLequal);
             GLES30.GlClearColor(0.035f, 0.055f, 0.09f, 1f);
             _start = Java.Lang.JavaSystem.CurrentTimeMillis();
         }
@@ -39,34 +47,70 @@ public sealed class ShaxViewport : GLSurfaceView
         {
             _width = Math.Max(1, width); _height = Math.Max(1, height);
             GLES30.GlViewport(0, 0, _width, _height);
+            Matrix.PerspectiveM(_projection, 0, 55f, (float)_width / _height, 0.1f, 100f);
         }
 
         public void OnDrawFrame(IGL10? gl)
         {
             GLES30.GlClear(GLES30.GlColorBufferBit | GLES30.GlDepthBufferBit);
+            Matrix.SetLookAtM(_view, 0, 3.6f, 2.8f, 4.8f, 0f, 0.5f, 0f, 0f, 1f, 0f);
+            Matrix.MultiplyMM(_vp, 0, _projection, 0, _view, 0);
             GLES30.GlUseProgram(_program);
-            var mvpLocation = GLES30.GlGetUniformLocation(_program, "uMvp");
-            var mvp = new float[16];
-            Matrix.SetIdentityM(mvp, 0);
-            Matrix.TranslateM(mvp, 0, 0f, 0f, -3f);
-            Matrix.RotateM(mvp, 0, (Java.Lang.JavaSystem.CurrentTimeMillis() - _start) * 0.025f, 0.4f, 1f, 0.2f);
-            Matrix.PerspectiveM(mvp, 0, 55f, (float)_width / _height, 0.1f, 100f);
-            GLES30.GlUniformMatrix4fv(mvpLocation, 1, false, mvp, 0);
-            GLES30.GlUniform3f(GLES30.GlGetUniformLocation(_program, "uColor"), 0.2f, 0.72f, 0.95f);
-            float[] points = {
-                -0.6f,-0.6f,0f, 0.6f,-0.6f,0f, 0f,0.6f,0f,
-                -0.6f,-0.6f,0f, 0f,0.6f,0f, -0.6f,0.6f,0f,
-                0.6f,-0.6f,0f, 0.6f,0.6f,0f, 0f,0.6f,0f,
-                -0.6f,0.6f,0f, 0f,0.6f,0f, 0.6f,0.6f,0f
-            };
+
+            Matrix.SetIdentityM(_model, 0);
+            Matrix.MultiplyMM(_mvp, 0, _vp, 0, _model, 0);
+            Draw(_grid, GLES30.GlLines, _grid.Length / 3, 0.23f, 0.32f, 0.42f);
+
+            Matrix.SetIdentityM(_model, 0);
+            Matrix.TranslateM(_model, 0, 0f, 0.52f, 0f);
+            Matrix.RotateM(_model, 0, (Java.Lang.JavaSystem.CurrentTimeMillis() - _start) * 0.025f, 0.25f, 1f, 0.15f);
+            Matrix.MultiplyMM(_mvp, 0, _vp, 0, _model, 0);
+            Draw(_cube, GLES30.GlTriangles, _cube.Length / 3, 0.2f, 0.72f, 0.95f);
+        }
+
+        private void Draw(float[] points, int mode, int count, float r, float g, float b)
+        {
+            GLES30.GlUniformMatrix4fv(GLES30.GlGetUniformLocation(_program, "uMvp"), 1, false, _mvp, 0);
+            GLES30.GlUniform3f(GLES30.GlGetUniformLocation(_program, "uColor"), r, g, b);
             using var vertices = Java.Nio.ByteBuffer.AllocateDirect(points.Length * 4)
                 .Order(Java.Nio.ByteOrder.NativeOrder()).AsFloatBuffer();
             vertices.Put(points);
             vertices.Position(0);
             GLES30.GlEnableVertexAttribArray(0);
             GLES30.GlVertexAttribPointer(0, 3, GLES30.GlFloat, false, 0, vertices);
-            GLES30.GlDrawArrays(GLES30.GlTriangles, 0, points.Length / 3);
+            GLES30.GlDrawArrays(mode, 0, count);
             GLES30.GlDisableVertexAttribArray(0);
+        }
+
+        private static float[] BuildGrid()
+        {
+            var values = new List<float>();
+            for (int i = -10; i <= 10; i++)
+            {
+                values.Add(i); values.Add(0f); values.Add(-10f);
+                values.Add(i); values.Add(0f); values.Add(10f);
+                values.Add(-10f); values.Add(0f); values.Add(i);
+                values.Add(10f); values.Add(0f); values.Add(i);
+            }
+            return values.ToArray();
+        }
+
+        private static float[] BuildCube()
+        {
+            var values = new List<float>();
+            void Face(float[] a, float[] b, float[] c, float[] d)
+            {
+                values.AddRange(a); values.AddRange(b); values.AddRange(c);
+                values.AddRange(a); values.AddRange(c); values.AddRange(d);
+            }
+            float[] p000={-0.5f,-0.5f,-0.5f}, p100={0.5f,-0.5f,-0.5f};
+            float[] p110={0.5f,0.5f,-0.5f}, p010={-0.5f,0.5f,-0.5f};
+            float[] p001={-0.5f,-0.5f,0.5f}, p101={0.5f,-0.5f,0.5f};
+            float[] p111={0.5f,0.5f,0.5f}, p011={-0.5f,0.5f,0.5f};
+            Face(p000,p100,p110,p010); Face(p101,p001,p011,p111);
+            Face(p001,p000,p010,p011); Face(p100,p101,p111,p110);
+            Face(p010,p110,p111,p011); Face(p001,p101,p100,p000);
+            return values.ToArray();
         }
 
         private static int Link(string vertex, string fragment)
