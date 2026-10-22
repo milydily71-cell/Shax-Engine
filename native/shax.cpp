@@ -13,7 +13,7 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "ShaxNative", __VA_ARGS__)
 namespace {
 GLuint sceneProgram = 0, pbrProgram = 0, skyProgram = 0, sceneVbo = 0, cubeVbo = 0, environmentCube = 0;
-GLint sceneMvp = -1, pbrMvp = -1, pbrModel = -1, pbrEnvironment = -1, pbrCamera = -1, pbrLight = -1, pbrRoughness = -1, pbrMetallic = -1, pbrJointMatrices = -1, pbrJointCount = -1, pbrSkinned = -1;
+GLint sceneMvp = -1, pbrMvp = -1, pbrModel = -1, pbrEnvironment = -1, pbrCamera = -1, pbrLight = -1, pbrRoughness = -1, pbrMetallic = -1, pbrJointMatrices = -1, pbrJointCount = -1, pbrSkinned = -1, pbrBaseColorTexture = -1, pbrUseBaseColorTexture = -1;
 GLint skyTime = -1, skyInverseViewProjection = -1, skyCamera = -1;
 float cameraX = 0.0f, cameraY = 1.6f, cameraZ = 4.0f, materialRoughness = 0.28f, materialMetallic = 0.08f;
 GLsizei gridCount = 0, cubeCount = 0;
@@ -178,32 +178,32 @@ void main(){ fragColor=vec4(vColor,1.0); })";
 
 constexpr const char* pbrVs = R"(#version 300 es
 layout(location=0) in vec3 aPosition; layout(location=1) in vec3 aNormal; layout(location=2) in vec3 aAlbedo;
-layout(location=3) in vec4 aJoints; layout(location=4) in vec4 aWeights;
+layout(location=3) in vec4 aJoints; layout(location=4) in vec4 aWeights; layout(location=5) in vec2 aTexCoord;
 uniform mat4 uMvp; uniform mat4 uModel; uniform mat4 uJointMatrices[32]; uniform int uJointCount; uniform int uSkinned;
-out vec3 vWorld; out vec3 vNormal; out vec3 vAlbedo;
+out vec3 vWorld; out vec3 vNormal; out vec3 vAlbedo; out vec2 vTexCoord;
 void main(){
  vec4 p=vec4(aPosition,1.0); vec3 n=aNormal;
- if(uSkinned==1 && uJointCount>0){
+ if(uSkinned==1 && uJointCount>0 && dot(aWeights,vec4(1.0))>0.0001){
    mat4 skin=mat4(0.0);
    for(int i=0;i<4;i++){int j=int(aJoints[i]); if(j>=0 && j<uJointCount) skin+=uJointMatrices[j]*aWeights[i];}
    p=skin*p; n=mat3(skin)*n;
  }
- vec4 w=uModel*p; vWorld=w.xyz; vNormal=normalize(transpose(inverse(mat3(uModel)))*n); vAlbedo=aAlbedo; gl_Position=uMvp*p;
+ vec4 w=uModel*p; vWorld=w.xyz; vNormal=normalize(transpose(inverse(mat3(uModel)))*n); vAlbedo=aAlbedo; vTexCoord=aTexCoord; gl_Position=uMvp*p;
 })";
 constexpr const char* pbrFs = R"(#version 300 es
-precision highp float; in vec3 vWorld; in vec3 vNormal; in vec3 vAlbedo; out vec4 fragColor;
-uniform samplerCube uEnvironment; uniform vec3 uCamera; uniform vec3 uLightDirection; uniform float uRoughness; uniform float uMetallic;
+precision highp float; in vec3 vWorld; in vec3 vNormal; in vec3 vAlbedo; in vec2 vTexCoord; out vec4 fragColor;
+uniform samplerCube uEnvironment; uniform sampler2D uBaseColorTexture; uniform int uUseBaseColorTexture; uniform vec3 uCamera; uniform vec3 uLightDirection; uniform float uRoughness; uniform float uMetallic;
 const float PI=3.14159265359;
 vec3 fresnel(float c,vec3 f0){return f0+(vec3(1.0)-f0)*pow(clamp(1.0-c,0.0,1.0),5.0);}
 float distributionGGX(vec3 N,vec3 H,float r){float a=r*r,a2=a*a,n=max(dot(N,H),0.0),d=n*n*(a2-1.0)+1.0;return a2/max(PI*d*d,0.0001);}
 float geometrySmith(float n,float r){float k=(r+1.0)*(r+1.0)/8.0;return n/(n*(1.0-k)+k);}
-void main(){vec3 N=normalize(vNormal),V=normalize(uCamera-vWorld),L=normalize(-uLightDirection),H=normalize(V+L);
+void main(){vec3 albedo=vAlbedo; if(uUseBaseColorTexture==1) albedo*=texture(uBaseColorTexture,vTexCoord).rgb; vec3 N=normalize(vNormal),V=normalize(uCamera-vWorld),L=normalize(-uLightDirection),H=normalize(V+L);
 float roughness=clamp(uRoughness,0.04,1.0),metallic=clamp(uMetallic,0.0,1.0),nv=max(dot(N,V),0.001),nl=max(dot(N,L),0.0);
-vec3 F0=mix(vec3(0.04),vAlbedo,metallic),F=fresnel(max(dot(H,V),0.0),F0);
+vec3 F0=mix(vec3(0.04),albedo,metallic),F=fresnel(max(dot(H,V),0.0),F0);
 float D=distributionGGX(N,H,roughness),G=geometrySmith(nv,roughness)*geometrySmith(nl,roughness);
 vec3 spec=(D*G*F)/max(4.0*nv*nl,0.001),kd=(vec3(1.0)-F)*(1.0-metallic);
-vec3 direct=(kd*vAlbedo/PI+spec)*vec3(3.2,3.05,2.8)*nl;
-vec3 diffuseIBL=texture(uEnvironment,N).rgb*vAlbedo;
+vec3 direct=(kd*albedo/PI+spec)*vec3(3.2,3.05,2.8)*nl;
+vec3 diffuseIBL=texture(uEnvironment,N).rgb*albedo;
 vec3 specularIBL=textureLod(uEnvironment,reflect(-V,N),roughness*4.0).rgb*F;
 vec3 color=direct+diffuseIBL*0.42+specularIBL*0.72;color=color/(color+vec3(1.0));color=pow(color,vec3(1.0/2.2));fragColor=vec4(color,1.0);})";
 constexpr const char* skyVs = R"(#version 300 es
@@ -328,6 +328,7 @@ extern "C" __attribute__((visibility("default"))) int shax_init() {
     pbrRoughness=glGetUniformLocation(pbrProgram,"uRoughness"); pbrMetallic=glGetUniformLocation(pbrProgram,"uMetallic");
     pbrJointMatrices=glGetUniformLocation(pbrProgram,"uJointMatrices[0]");
     pbrJointCount=glGetUniformLocation(pbrProgram,"uJointCount"); pbrSkinned=glGetUniformLocation(pbrProgram,"uSkinned");
+    pbrBaseColorTexture=glGetUniformLocation(pbrProgram,"uBaseColorTexture"); pbrUseBaseColorTexture=glGetUniformLocation(pbrProgram,"uUseBaseColorTexture");
     skyTime=glGetUniformLocation(skyProgram,"uTime"); skyInverseViewProjection=glGetUniformLocation(skyProgram,"uInverseViewProjection"); skyCamera=glGetUniformLocation(skyProgram,"uCamera");
     buildGeometry(); buildPbrCube(); buildEnvironment();
     initializeGpuTiming();
