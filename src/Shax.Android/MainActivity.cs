@@ -44,6 +44,7 @@ public sealed class MainActivity : Activity
         BuildEditorShell();
         LoadScript();
         LoadScene();
+        CompileAndPlay();
     }
 
     private void BuildEditorShell()
@@ -229,6 +230,7 @@ public sealed class MainActivity : Activity
         else _runtimeScript.Program = result.Program;
         ShowPanel("scene");
         SetStatus("AOT-safe Shax C# subset compiled and running.");
+        global::Android.Util.Log.Info("ShaxEngine", "AOT-safe Shax C# subset compiled and running.");
     }
 
     private void ApplySyntaxHighlighting()
