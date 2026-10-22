@@ -52,6 +52,9 @@ public class Scene
     {
         if (deltaTime < 0 || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime))
             throw new ArgumentOutOfRangeException(nameof(deltaTime));
+        if (!Game.IsPlaying) return;
+        Game.AdvanceTime(deltaTime);
+        deltaTime = Game.DeltaTime;
         Physics.Bind(this);
         foreach (var entity in _entities.ToArray())
         {
