@@ -113,7 +113,11 @@ public sealed class PhysicsWorld
     private float _accumulator;
     private Scene? _scene;
 
-    internal void Bind(Scene scene) => _scene = scene;
+    internal void Bind(Scene scene)
+    {
+        _scene = scene;
+        foreach (var controller in scene.Entities.SelectMany(e => e.Components.OfType<CharacterController>())) controller.World = this;
+    }
 
     public void Step(Scene scene, float deltaTime)
     {
