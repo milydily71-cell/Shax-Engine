@@ -7,7 +7,8 @@
 - [ ] Add CI build and unit tests
 
 ## Milestone 1 — first visible 3D scene
-- [ ] Android app launches into a GLES 3.0 surface
+- [x] Initial Android app shell and GLES surface source added (build/device verification pending)
+- [ ] Android app launches into a GLES 3.1 surface with GLES 3.0 fallback
 - [ ] Clear color, viewport resize and lifecycle/context-loss handling
 - [ ] Perspective camera and touch orbit/pan/zoom
 - [ ] Ground grid and XYZ axes
