@@ -27,6 +27,6 @@ Install .NET SDK 10.0.100, Java 17, Android SDK platform/build tools 35, NDK 27.
 
 ## Known limitations
 
-The Script IDE currently provides a source buffer, basic syntax coloring and delimiter diagnostics; it does **not** compile and execute arbitrary edited C# code. The visible rotating cube uses a compiled-in C# behaviour. Dynamic scripting must account for .NET Android AOT limitations and needs a deliberately constrained, tested execution model.
+The Script IDE provides a source buffer, basic syntax coloring, delimiter diagnostics and Play-time interpretation of a deliberately restricted C# behaviour subset. The subset currently supports rotation and local position/scale assignments; it rejects filesystem/network/reflection/process APIs and unsupported statements. It is **not** a general C# compiler and does not load generated assemblies or IL, so expanding it requires additional sandbox and regression tests.
 
 Automated CI can verify an emulator run but cannot certify physical hardware. ES 3.2/3.0 device-specific rendering, pause/resume and EGL context-loss behavior still require hands-on device tests. PBR, image-based lighting, shadows, glTF/GLB import, animation, full asset pipeline, robust sandboxing and GPU profiling remain planned.
