@@ -28,6 +28,13 @@ public static class Game
 }
 
 /// <summary>Simple host-fed mobile input state; Android touch controls can set axes and jump.</summary>
+public static class Time
+{
+    public static float DeltaTime => Game.DeltaTime;
+    public static float TimeSinceStartup => Game.Time;
+    public static float TimeScale { get => Game.TimeScale; set => Game.TimeScale = value; }
+}
+
 public static class Input
 {
     private static bool _jumpPressed;
