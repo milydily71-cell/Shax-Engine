@@ -108,6 +108,9 @@ public sealed class MainActivity : Activity
         var newScriptButton = new Button(this) { Text = "+ New", TextSize = 10 };
         newScriptButton.SetOnClickListener(new ClickAction(CreateScriptDialog));
         scriptProjectRow.AddView(newScriptButton, new LinearLayout.LayoutParams(-2, -2));
+        var examplesButton = new Button(this) { Text = "Examples", TextSize = 10 };
+        examplesButton.SetOnClickListener(new ClickAction(ShowScriptExamples));
+        scriptProjectRow.AddView(examplesButton, new LinearLayout.LayoutParams(-2, -2));
         _scriptPanel.AddView(scriptProjectRow, new LinearLayout.LayoutParams(-1, -2));
         _scriptPanel.AddView(_scriptEditor, new LinearLayout.LayoutParams(-1, 0, 1));
         _diagnostics = Label("Diagnostics: waiting for edits", 11, false);
@@ -404,6 +407,21 @@ public sealed class MainActivity : Activity
             SetStatus("Opened project script: " + name);
         }
         catch (Exception ex) { SetStatus("Script load failed: " + ex.Message); }
+    }
+
+    private void ShowScriptExamples()
+    {
+        var examples = ScriptSamples.All.ToArray();
+        var labels = examples.Select(x => x.Key).ToArray();
+        new AlertDialog.Builder(this).SetTitle("Executable safe C# examples")
+            .SetItems(labels, (_, e) =>
+            {
+                if (_scriptEditor == null) return;
+                _scriptEditor.Text = examples[e.Which].Value;
+                ShowPanel("script");
+                SetStatus("Loaded example: " + labels[e.Which] + ". Press Play to run the supported script subset.");
+            })
+            .SetNegativeButton("Cancel", (_, _) => { }).Show();
     }
 
     private void ShowScriptPicker()
