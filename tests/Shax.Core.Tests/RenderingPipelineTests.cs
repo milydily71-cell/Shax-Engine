@@ -70,6 +70,24 @@ public sealed class RenderingPipelineTests
         Assert.True(TestResource.LastDisposed);
     }
 
+
+    [Fact]
+    public void MaterialSettingsRoundTripThroughAtomicStore()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "shax-material-test-" + Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(root, "material.json");
+        try
+        {
+            var material = new PbrMaterialSettings { Name = "Chrome", Metallic = 0.92f, Roughness = 0.12f };
+            PbrMaterialStore.SaveAtomic(path, material);
+            var restored = PbrMaterialStore.Load(path);
+            Assert.Equal("Chrome", restored.Name);
+            Assert.Equal(0.92f, restored.Metallic, 3);
+            Assert.Equal(0.12f, restored.Roughness, 3);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
     private sealed class TestResource : IDisposable
     {
         public static bool LastDisposed { get; private set; }
