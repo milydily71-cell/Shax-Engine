@@ -32,7 +32,7 @@ public sealed class MainActivity : Activity
     private EditText? _positionX, _positionY, _positionZ;
     private readonly Stack<Vector3> _undo = new();
     private readonly Stack<Vector3> _redo = new();
-    private bool _highlighting;
+    private bool _highlighting;\n    private RuntimeScriptBehaviour? _runtimeScript;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -62,7 +62,7 @@ public sealed class MainActivity : Activity
         AddAction(toolbar, "Save Scene", SaveScene);
         AddAction(toolbar, "Undo", UndoTransform);
         AddAction(toolbar, "Redo", RedoTransform);
-        AddAction(toolbar, "Play", () => { _scene.Tick(1f / 60f); SetStatus("C# behaviour tick executed."); });
+        AddAction(toolbar, "Play", CompileAndPlay);
         toolbarScroll.AddView(toolbar);
         _root.AddView(toolbarScroll, new LinearLayout.LayoutParams(-1, -2));
 
