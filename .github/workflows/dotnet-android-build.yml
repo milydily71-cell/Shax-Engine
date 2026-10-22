@@ -103,7 +103,7 @@ jobs:
             adb logcat -d | grep -E 'OpenGL ES 3.2|OpenGL ES 3.0'
             adb shell input keyevent HOME
             sleep 3
-            adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER --ez shax.forceGles30 true
+            adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p com.shax.engine.dotnet --ez shax.forceGles30 true
             sleep 10
             adb shell pidof com.shax.engine.dotnet
             adb logcat -d | grep -E 'Native libshax.so renderer initialized|ShaxNative|AOT-safe Shax C# subset compiled and running'
