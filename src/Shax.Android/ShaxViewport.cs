@@ -93,6 +93,10 @@ public sealed class ShaxViewport : GLSurfaceView
         private static extern int NativeInit();
         [DllImport("shax", EntryPoint = "shax_resize")]
         private static extern void NativeResize(int width, int height);
+        [DllImport("shax", EntryPoint = "shax_set_camera")]
+        private static extern void NativeSetCamera(float x, float y, float z);
+        [DllImport("shax", EntryPoint = "shax_set_material")]
+        private static extern void NativeSetMaterial(float roughness, float metallic);
         [DllImport("shax", EntryPoint = "shax_draw")]
         private static extern void NativeDraw([In] float[] viewProjection, [In] float[] cubeModel, float timeSeconds);
         [DllImport("shax", EntryPoint = "shax_shutdown")]
@@ -159,6 +163,8 @@ public sealed class ShaxViewport : GLSurfaceView
             _cubeModel[8]=world.M31; _cubeModel[9]=world.M32; _cubeModel[10]=world.M33; _cubeModel[11]=world.M34;
             _cubeModel[12]=world.M41; _cubeModel[13]=world.M42; _cubeModel[14]=world.M43; _cubeModel[15]=world.M44;
             var time = (Java.Lang.JavaSystem.CurrentTimeMillis() - _startMilliseconds) / 1000f;
+            NativeSetCamera(eyeX, eyeY, eyeZ);
+            NativeSetMaterial(0.28f, 0.08f);
             NativeDraw(_viewProjection, _cubeModel, time);
         }
 
