@@ -42,6 +42,7 @@ public sealed class MainActivity : Activity
     private bool _highlighting;
     private RuntimeScriptBehaviour? _runtimeScript;
     private bool _forceGles30;
+    private readonly PbrMaterialSettings _materialSettings = new();
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -50,7 +51,9 @@ public sealed class MainActivity : Activity
         _forceGles30 = Intent?.GetBooleanExtra("shax.forceGles30", false) ?? false;
         _cubeEntity = _scene.CreateEntity("Cube");
         _cubeEntity.Transform.LocalPosition = new Vector3(0f, 0.5f, 0f);
+        try { var loaded = PbrMaterialStore.Load(Path.Combine(FilesDir!.AbsolutePath, "PbrMaterial.shax.json")); CopyMaterial(loaded); } catch (Exception ex) { global::Android.Util.Log.Warn("ShaxEngine", "Using default material settings: " + ex.Message); }
         BuildEditorShell();
+        _viewport?.SetMaterial(_materialSettings.Roughness, _materialSettings.Metallic);
         LoadScript();
         LoadScene();
         CompileAndPlay();
@@ -71,6 +74,7 @@ public sealed class MainActivity : Activity
         AddAction(toolbar, "Console", () => ShowPanel("console"));
         AddAction(toolbar, "Save", SaveScript);
         AddAction(toolbar, "Save Scene", SaveScene);
+        AddAction(toolbar, "Save Material", SaveMaterialSettings);
         AddAction(toolbar, "Undo", UndoTransform);
         AddAction(toolbar, "Redo", RedoTransform);
         AddAction(toolbar, "Play", CompileAndPlay);
@@ -159,13 +163,13 @@ public sealed class MainActivity : Activity
         _materialPanel.AddView(Label("Metallic-roughness Cook-Torrance BRDF with procedural environment-cubemap IBL", 12, false));
         _roughnessValue = Label("Roughness: 0.28", 13, false);
         _materialPanel.AddView(_roughnessValue);
-        _roughnessSeek = new SeekBar(this) { Max = 96, Progress = 27 };
-        _roughnessSeek.ProgressChanged += (_, e) => { if (e.FromUser) { var value = Math.Clamp(e.Progress / 96f, 0.04f, 1f); if (_roughnessValue != null) _roughnessValue.Text = $"Roughness: {value:0.00}"; _viewport?.SetMaterial(value, (_metallicSeek?.Progress ?? 8) / 100f); } };
+        _roughnessSeek = new SeekBar(this) { Max = 96, Progress = Math.Clamp((int)MathF.Round(_materialSettings.Roughness * 96f), 4, 96) };
+        _roughnessSeek.ProgressChanged += (_, e) => { if (e.FromUser) { var value = Math.Clamp(e.Progress / 96f, 0.04f, 1f); _materialSettings.Roughness = value; if (_roughnessValue != null) _roughnessValue.Text = $"Roughness: {value:0.00}"; _viewport?.SetMaterial(value, _materialSettings.Metallic); } };
         _materialPanel.AddView(_roughnessSeek);
         _metallicValue = Label("Metallic: 0.08", 13, false);
         _materialPanel.AddView(_metallicValue);
-        _metallicSeek = new SeekBar(this) { Max = 100, Progress = 8 };
-        _metallicSeek.ProgressChanged += (_, e) => { if (e.FromUser) { var value = e.Progress / 100f; if (_metallicValue != null) _metallicValue.Text = $"Metallic: {value:0.00}"; _viewport?.SetMaterial((_roughnessSeek?.Progress ?? 27) / 96f, value); } };
+        _metallicSeek = new SeekBar(this) { Max = 100, Progress = Math.Clamp((int)MathF.Round(_materialSettings.Metallic * 100f), 0, 100) };
+        _metallicSeek.ProgressChanged += (_, e) => { if (e.FromUser) { var value = e.Progress / 100f; _materialSettings.Metallic = value; if (_metallicValue != null) _metallicValue.Text = $"Metallic: {value:0.00}"; _viewport?.SetMaterial(_materialSettings.Roughness, value); } };
         _materialPanel.AddView(_metallicSeek);
         _workspace.AddView(_materialPanel, new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top));
         _materialPanel.Visibility = ViewStates.Gone;
@@ -374,15 +378,47 @@ public sealed class MainActivity : Activity
         catch (Exception ex) { SetStatus("Script load failed: " + ex.Message); }
     }
 
+
+    private void CopyMaterial(PbrMaterialSettings source)
+    {
+        _materialSettings.Name = source.Name;
+        _materialSettings.BaseColorR = source.BaseColorR; _materialSettings.BaseColorG = source.BaseColorG;
+        _materialSettings.BaseColorB = source.BaseColorB; _materialSettings.BaseColorA = source.BaseColorA;
+        _materialSettings.Metallic = source.Metallic; _materialSettings.Roughness = source.Roughness;
+        _materialSettings.AmbientOcclusion = source.AmbientOcclusion; _materialSettings.NormalScale = source.NormalScale;
+    }
+
+    private void SaveMaterialSettings()
+    {
+        try
+        {
+            PbrMaterialStore.SaveAtomic(Path.Combine(FilesDir!.AbsolutePath, "PbrMaterial.shax.json"), _materialSettings);
+            SetStatus("PBR material saved atomically to app-private storage.");
+        }
+        catch (Exception ex) { SetStatus("Material save failed: " + ex.Message); }
+    }
+
+    private void WritePrivateFileAtomically(string name, string content)
+    {
+        var directory = FilesDir!.AbsolutePath;
+        Directory.CreateDirectory(directory);
+        var destination = Path.Combine(directory, name);
+        var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temporary, content, new System.Text.UTF8Encoding(false));
+            File.Move(temporary, destination, overwrite: true);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+
     private void SaveScript()
     {
         try
         {
             if (_scriptEditor == null) return;
-            using var stream = OpenFileOutput("PlayerScript.cs", FileCreationMode.Private) ?? throw new System.IO.IOException("Could not open script file for writing.");
-            using var writer = new System.IO.StreamWriter(stream);
-            writer.Write(_scriptEditor.Text?.ToString() ?? string.Empty);
-            SetStatus("Saved PlayerScript.cs to app-private storage.");
+            WritePrivateFileAtomically("PlayerScript.cs", _scriptEditor.Text?.ToString() ?? string.Empty);
+            SetStatus("Saved PlayerScript.cs atomically to app-private storage.");
         }
         catch (Exception ex) { SetStatus("Script save failed: " + ex.Message); }
     }
@@ -391,10 +427,8 @@ public sealed class MainActivity : Activity
     {
         try
         {
-            using var stream = OpenFileOutput("MainScene.shax.json", FileCreationMode.Private) ?? throw new System.IO.IOException("Could not open scene file for writing.");
-            using var writer = new System.IO.StreamWriter(stream);
-            writer.Write(SceneSerializer.Serialize(_scene));
-            SetStatus("Saved scene JSON with stable entity IDs.");
+            WritePrivateFileAtomically("MainScene.shax.json", SceneSerializer.Serialize(_scene));
+            SetStatus("Saved scene JSON atomically with stable entity IDs.");
         }
         catch (Exception ex) { SetStatus("Scene save failed: " + ex.Message); }
     }
@@ -426,7 +460,7 @@ public sealed class MainActivity : Activity
 
     protected override void OnPause()
     {
-        try { SaveScene(); SaveScript(); } catch { }
+        try { SaveScene(); SaveScript(); SaveMaterialSettings(); } catch { }
         _viewport?.OnPause();
         base.OnPause();
     }
