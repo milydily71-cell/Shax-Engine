@@ -29,7 +29,7 @@ public sealed class SceneTests
         var restored = SceneSerializer.Deserialize(SceneSerializer.Serialize(scene));
         Assert.Equal(scene.Name, restored.Name);
         Assert.Equal(scene.Entities.Select(e => e.Id).OrderBy(x => x), restored.Entities.Select(e => e.Id).OrderBy(x => x));
-        var restoredChild = Assert.Single(restored.Entities.Where(e => e.Name == "Child"));
+        var restoredChild = Assert.Single(restored.Entities, e => e.Name == "Child");
         Assert.Equal("Parent", restoredChild.Parent?.Name);
         Assert.Equal(new Vector3(1, 2, 3), restoredChild.Transform.LocalPosition);
     }
