@@ -21,13 +21,15 @@ public sealed class ShaxViewport : GLSurfaceView
     private float _previousX, _previousY;
     private bool _wasScaling;
 
-    public ShaxViewport(Context context, Scene scene, Entity cubeEntity) : base(context)
+    public ShaxViewport(Context context, Scene scene, Entity cubeEntity, bool forceGles30 = false) : base(context)
     {
-        _renderer = new ViewportRenderer(scene, cubeEntity);
+        _forceGles30 = forceGles30;
+        _renderer = new ViewportRenderer(scene, cubeEntity, forceGles30);
         _scaleDetector = new global::Android.Views.ScaleGestureDetector(context, new ScaleGestureListener { OnScaleAction = factor => QueueEvent(() => _renderer.Zoom(factor)) });
         SetEGLContextClientVersion(3);
         SetEGLConfigChooser(8, 8, 8, 8, 24, 8);
-        SetEGLContextFactory(new Es32OrEs30ContextFactory());
+        _contextFactory = new Es32OrEs30ContextFactory { ForceGles30 = forceGles30 };
+        SetEGLContextFactory(_contextFactory);
         SetRenderer(_renderer);
         RenderMode = Rendermode.Continuously;
         PreserveEGLContextOnPause = false;
@@ -51,6 +53,7 @@ public sealed class ShaxViewport : GLSurfaceView
 
     private sealed class Es32OrEs30ContextFactory : Java.Lang.Object, GLSurfaceView.IEGLContextFactory
     {
+        public bool ForceGles30 { get; init; }
         public EGLContext? CreateContext(IEGL10? egl, EGLDisplay? display, EGLConfig? config)
         {
             if (egl is null || display is null || config is null)
@@ -64,9 +67,10 @@ public sealed class ShaxViewport : GLSurfaceView
                 return egl.EglCreateContext(display, config, IEGL10.EglNoContext, attributes);
             }
 
-            var context = TryCreate(2);
+            var context = ForceGles30 ? TryCreate(0) : TryCreate(2);
             if (context is not null && !context.Equals(IEGL10.EglNoContext)) return context;
             // Intentional direct fallback: ES 3.1 is not a supported target for this project.
+            if (ForceGles30) throw new InvalidOperationException("Could not create a strict OpenGL ES 3.0 context.");
             context = TryCreate(0);
             if (context is null || context.Equals(IEGL10.EglNoContext))
                 throw new InvalidOperationException("Shax requires OpenGL ES 3.2 or OpenGL ES 3.0.");
@@ -93,6 +97,7 @@ public sealed class ShaxViewport : GLSurfaceView
 
         private readonly Entity _cubeEntity;
         private readonly Scene _scene;
+        private readonly bool _forceGles30;
         private readonly float[] _projection = new float[16];
         private readonly float[] _view = new float[16];
         private readonly float[] _viewProjection = new float[16];
@@ -101,12 +106,19 @@ public sealed class ShaxViewport : GLSurfaceView
         private float _yaw = 0.65f, _pitch = 0.35f, _distance = 7.5f;
         private long _startMilliseconds;
 
-        public ViewportRenderer(Scene scene, Entity cubeEntity) { _scene = scene; _cubeEntity = cubeEntity; }
+        public ViewportRenderer(Scene scene, Entity cubeEntity, bool forceGles30) { _scene = scene; _cubeEntity = cubeEntity; _forceGles30 = forceGles30; }
 
         public void OnSurfaceCreated(IGL10? gl, EGLConfig? config)
         {
             try
             {
+                var version = GLES30.GlGetString(GLES30.GlVersion) ?? string.Empty;
+                var match = System.Text.RegularExpressions.Regex.Match(version, @"OpenGL ES (\d+)\.(\d+)");
+                if (!match.Success) throw new InvalidOperationException("Unable to identify the OpenGL ES driver version: " + version);
+                var major = int.Parse(match.Groups[1].Value);
+                var minor = int.Parse(match.Groups[2].Value);
+                if (major != 3 || (minor != 0 && minor != 2) || (_forceGles30 && minor != 0))
+                    throw new InvalidOperationException("Shax accepts only OpenGL ES 3.2 or ES 3.0; active driver is " + version);
                 if (NativeInit() == 0) throw new InvalidOperationException("Native GLES renderer initialization failed.");
                 global::Android.Util.Log.Info("ShaxEngine", "Native libshax.so renderer initialized.");
                 _startMilliseconds = Java.Lang.JavaSystem.CurrentTimeMillis();
