@@ -12,7 +12,7 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "ShaxNative", __VA_ARGS__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "ShaxNative", __VA_ARGS__)
 namespace {
-GLuint sceneProgram = 0, pbrProgram = 0, skyProgram = 0, sceneVbo = 0, cubeVbo = 0, environmentCube = 0, importedVbo = 0, importedEbo = 0, importedBaseColorTexture = 0;
+GLuint sceneProgram = 0, pbrProgram = 0, skyProgram = 0, sceneVbo = 0, cubeVbo = 0, baseplateVbo = 0, environmentCube = 0, importedVbo = 0, importedEbo = 0, importedBaseColorTexture = 0;
 GLsizei importedIndexCount = 0;
 float skinMatrices[32 * 16]{};
 int skinMatrixCount = 0;
