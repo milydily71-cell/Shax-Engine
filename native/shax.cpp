@@ -107,18 +107,18 @@ constexpr const char* pbrFs = R"(#version 300 es
 precision highp float; in vec3 vWorld; in vec3 vNormal; in vec3 vAlbedo; out vec4 fragColor;
 uniform samplerCube uEnvironment; uniform vec3 uCamera; uniform vec3 uLightDirection; uniform float uRoughness; uniform float uMetallic;
 const float PI=3.14159265359;
-vec3 fresnel(float c,vec3 f0){return f0+(1.0-f0)*pow(clamp(1.0-c,0.0,1.0),5.0);}
+vec3 fresnel(float c,vec3 f0){return f0+(vec3(1.0)-f0)*pow(clamp(1.0-c,0.0,1.0),5.0);}
 float distributionGGX(vec3 N,vec3 H,float r){float a=r*r,a2=a*a,n=max(dot(N,H),0.0),d=n*n*(a2-1.0)+1.0;return a2/max(PI*d*d,0.0001);}
 float geometrySmith(float n,float r){float k=(r+1.0)*(r+1.0)/8.0;return n/(n*(1.0-k)+k);}
 void main(){vec3 N=normalize(vNormal),V=normalize(uCamera-vWorld),L=normalize(-uLightDirection),H=normalize(V+L);
 float roughness=clamp(uRoughness,0.04,1.0),metallic=clamp(uMetallic,0.0,1.0),nv=max(dot(N,V),0.001),nl=max(dot(N,L),0.0);
 vec3 F0=mix(vec3(0.04),vAlbedo,metallic),F=fresnel(max(dot(H,V),0.0),F0);
 float D=distributionGGX(N,H,roughness),G=geometrySmith(nv,roughness)*geometrySmith(nl,roughness);
-vec3 spec=(D*G*F)/max(4.0*nv*nl,0.001),kd=(1.0-F)*(1.0-metallic);
+vec3 spec=(D*G*F)/max(4.0*nv*nl,0.001),kd=(vec3(1.0)-F)*(1.0-metallic);
 vec3 direct=(kd*vAlbedo/PI+spec)*vec3(3.2,3.05,2.8)*nl;
 vec3 diffuseIBL=texture(uEnvironment,N).rgb*vAlbedo;
 vec3 specularIBL=textureLod(uEnvironment,reflect(-V,N),roughness*4.0).rgb*F;
-vec3 color=direct+diffuseIBL*0.42+specularIBL*0.72;color=color/(color+1.0);color=pow(color,vec3(1.0/2.2));fragColor=vec4(color,1.0);})";
+vec3 color=direct+diffuseIBL*0.42+specularIBL*0.72;color=color/(color+vec3(1.0));color=pow(color,vec3(1.0/2.2));fragColor=vec4(color,1.0);})";
 constexpr const char* skyVs = R"(#version 300 es
 out vec2 vUv;
 void main(){ vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2); vUv=p; gl_Position=vec4(p*2.0-1.0,1.0,1.0); })";
