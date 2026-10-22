@@ -4,7 +4,7 @@ namespace Shax;
 
 public enum CameraMode { Orbit, FirstPerson, ThirdPerson }
 
-public sealed class CameraComponent : IEntityComponent
+public class CameraComponent : IEntityComponent
 {
     public Entity? Entity { get; private set; }
     public CameraMode Mode { get; set; } = CameraMode.Orbit;
@@ -60,7 +60,7 @@ public sealed class CameraComponent : IEntityComponent
     }
 }
 
-public sealed class FpsCounter
+public class FpsCounter
 {
     private readonly float[] _samples = new float[120];
     private int _next, _count;
