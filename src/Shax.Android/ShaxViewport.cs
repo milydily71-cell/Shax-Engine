@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Android.Content;
 using Android.Opengl;
 using Android.Views;
@@ -5,170 +6,173 @@ using Javax.Microedition.Khronos.Egl;
 using EGLConfig = Javax.Microedition.Khronos.Egl.EGLConfig;
 using EGLContext = Javax.Microedition.Khronos.Egl.EGLContext;
 using EGLDisplay = Javax.Microedition.Khronos.Egl.EGLDisplay;
-using EGL10 = Javax.Microedition.Khronos.Egl.EGL10;
 using IEGL10 = Javax.Microedition.Khronos.Egl.IEGL10;
 using GLMatrix = Android.Opengl.Matrix;
 using Javax.Microedition.Khronos.Opengles;
+using Shax;
 
 namespace Shax.Android;
 
-/// <summary>Perspective mobile viewport with grid, cube, and GLES capability reporting.</summary>
+/// <summary>Native C++ GLES viewport. Requests ES 3.2 and falls back directly to ES 3.0.</summary>
 public sealed class ShaxViewport : GLSurfaceView
 {
-    public ShaxViewport(Context context) : base(context)
+    private readonly ViewportRenderer _renderer;
+    private readonly ScaleGestureDetector _scaleDetector;
+    private float _previousX, _previousY;
+    private bool _wasScaling;
+
+    public ShaxViewport(Context context, Entity cubeEntity) : base(context)
     {
+        _renderer = new ViewportRenderer(cubeEntity);
+        _scaleDetector = new ScaleGestureDetector(context, new ScaleGestureDetector.SimpleOnScaleGestureListener
+        {
+            OnScaleAction = factor => QueueEvent(() => _renderer.Zoom(factor))
+        });
         SetEGLContextClientVersion(3);
-        SetEGLContextFactory(new Es32ContextFactory());
-        SetRenderer(new ViewportRenderer());
+        SetEGLConfigChooser(8, 8, 8, 8, 24, 8);
+        SetEGLContextFactory(new Es32OrEs30ContextFactory());
+        SetRenderer(_renderer);
         RenderMode = Rendermode.Continuously;
         PreserveEGLContextOnPause = true;
+        KeepScreenOn = true;
     }
 
-    private sealed class Es32ContextFactory : Java.Lang.Object, GLSurfaceView.IEGLContextFactory
+    public override bool OnTouchEvent(MotionEvent? e)
+    {
+        if (e is null) return false;
+        _scaleDetector.OnTouchEvent(e);
+        var x = e.GetX(), y = e.GetY();
+        if (e.ActionMasked == MotionEventActions.Move && e.PointerCount == 1 && !_scaleDetector.IsInProgress)
+        {
+            var dx = x - _previousX; var dy = y - _previousY;
+            if (!_wasScaling) QueueEvent(() => _renderer.Orbit(dx, dy));
+        }
+        _wasScaling = _scaleDetector.IsInProgress;
+        _previousX = x; _previousY = y;
+        return true;
+    }
+
+    private sealed class Es32OrEs30ContextFactory : Java.Lang.Object, GLSurfaceView.IEGLContextFactory
     {
         public EGLContext? CreateContext(IEGL10? egl, EGLDisplay? display, EGLConfig? config)
         {
-            if (egl == null || display == null || config == null)
+            if (egl is null || display is null || config is null)
                 throw new InvalidOperationException("EGL is not ready.");
-            EGLContext? Try(int minor)
+
+            EGLContext? TryCreate(int minor)
             {
-                int[] attributes = minor == 0
+                var attributes = minor == 0
                     ? new[] { 0x3098, 3, 0x3038 }
                     : new[] { 0x3098, 3, 0x30FB, minor, 0x3038 };
                 return egl.EglCreateContext(display, config, IEGL10.EglNoContext, attributes);
             }
-            var context = Try(2);
-            if (context != null && !context.Equals(IEGL10.EglNoContext)) return context;
-            context = Try(1);
-            if (context != null && !context.Equals(IEGL10.EglNoContext)) return context;
-            context = Try(0);
-            if (context == null || context.Equals(IEGL10.EglNoContext))
-                throw new InvalidOperationException("Shax requires OpenGL ES 3.0 or newer.");
+
+            var context = TryCreate(2);
+            if (context is not null && !context.Equals(IEGL10.EglNoContext)) return context;
+            // Intentional direct fallback: ES 3.1 is not a supported target for this project.
+            context = TryCreate(0);
+            if (context is null || context.Equals(IEGL10.EglNoContext))
+                throw new InvalidOperationException("Shax requires OpenGL ES 3.2 or OpenGL ES 3.0.");
             return context;
         }
 
         public void DestroyContext(IEGL10? egl, EGLDisplay? display, EGLContext? context)
         {
-            if (egl != null && display != null && context != null && !egl.EglDestroyContext(display, context))
+            if (egl is not null && display is not null && context is not null && !egl.EglDestroyContext(display, context))
                 global::Android.Util.Log.Error("ShaxEngine", "Failed to destroy EGL context.");
         }
     }
 
+    private sealed class ScaleGestureDetector : Android.Views.ScaleGestureDetector
+    {
+        public ScaleGestureDetector(Context context, SimpleOnScaleGestureListener listener) : base(context, listener) { }
+    }
+
     private sealed class ViewportRenderer : Java.Lang.Object, GLSurfaceView.IRenderer
     {
-        private int _program;
-        private int _width = 1, _height = 1;
-        private long _start;
+        [DllImport("shax", EntryPoint = "shax_init")]
+        private static extern int NativeInit();
+        [DllImport("shax", EntryPoint = "shax_resize")]
+        private static extern void NativeResize(int width, int height);
+        [DllImport("shax", EntryPoint = "shax_draw")]
+        private static extern void NativeDraw([In] float[] viewProjection, [In] float[] cubeModel, float timeSeconds);
+        [DllImport("shax", EntryPoint = "shax_shutdown")]
+        private static extern void NativeShutdown();
+
+        private readonly Entity _cubeEntity;
         private readonly float[] _projection = new float[16];
         private readonly float[] _view = new float[16];
-        private readonly float[] _vp = new float[16];
-        private readonly float[] _model = new float[16];
-        private readonly float[] _mvp = new float[16];
-        private readonly float[] _cube = BuildCube();
-        private readonly float[] _grid = BuildGrid();
-        private const string Vertex = "#version 300 es\nlayout(location=0) in vec3 aPosition; uniform mat4 uMvp; void main(){ gl_Position=uMvp*vec4(aPosition,1.0); }";
-        private const string Fragment = "#version 300 es\nprecision mediump float; out vec4 color; uniform vec3 uColor; void main(){ color=vec4(uColor,1.0); }";
+        private readonly float[] _viewProjection = new float[16];
+        private readonly float[] _cubeModel = new float[16];
+        private int _width = 1, _height = 1;
+        private float _yaw = 0.65f, _pitch = 0.35f, _distance = 7.5f;
+        private long _startMilliseconds;
+
+        public ViewportRenderer(Entity cubeEntity) => _cubeEntity = cubeEntity;
 
         public void OnSurfaceCreated(IGL10? gl, EGLConfig? config)
         {
-            var version = GLES30.GlGetString(GLES30.GlVersion) ?? "OpenGL ES";
-            global::Android.Util.Log.Info("ShaxEngine", "Viewport driver: " + version);
-            _program = Link(Vertex, Fragment);
-            GLES30.GlEnable(GLES30.GlDepthTest);
-            GLES30.GlDepthFunc(GLES30.GlLequal);
-            GLES30.GlClearColor(0.035f, 0.055f, 0.09f, 1f);
-            _start = Java.Lang.JavaSystem.CurrentTimeMillis();
+            try
+            {
+                if (NativeInit() == 0) throw new InvalidOperationException("Native GLES renderer initialization failed.");
+                global::Android.Util.Log.Info("ShaxEngine", "Native libshax.so renderer initialized.");
+                _startMilliseconds = Java.Lang.JavaSystem.CurrentTimeMillis();
+                NativeResize(_width, _height);
+            }
+            catch (DllNotFoundException ex)
+            {
+                global::Android.Util.Log.Error("ShaxEngine", "libshax.so is missing from the APK: " + ex);
+                throw;
+            }
         }
 
         public void OnSurfaceChanged(IGL10? gl, int width, int height)
         {
             _width = Math.Max(1, width); _height = Math.Max(1, height);
-            GLES30.GlViewport(0, 0, _width, _height);
-            GLMatrix.PerspectiveM(_projection, 0, 55f, (float)_width / _height, 0.1f, 100f);
+            NativeResize(_width, _height);
+            GLMatrix.PerspectiveM(_projection, 0, 55f, (float)_width / _height, 0.1f, 1000f);
         }
 
         public void OnDrawFrame(IGL10? gl)
         {
-            GLES30.GlClear(GLES30.GlColorBufferBit | GLES30.GlDepthBufferBit);
-            GLMatrix.SetLookAtM(_view, 0, 3.6f, 2.8f, 4.8f, 0f, 0.5f, 0f, 0f, 1f, 0f);
-            GLMatrix.MultiplyMM(_vp, 0, _projection, 0, _view, 0);
-            GLES30.GlUseProgram(_program);
-
-            GLMatrix.SetIdentityM(_model, 0);
-            GLMatrix.MultiplyMM(_mvp, 0, _vp, 0, _model, 0);
-            Draw(_grid, GLES30.GlLines, _grid.Length / 3, 0.23f, 0.32f, 0.42f);
-
-            GLMatrix.SetIdentityM(_model, 0);
-            GLMatrix.TranslateM(_model, 0, 0f, 0.52f, 0f);
-            GLMatrix.RotateM(_model, 0, (Java.Lang.JavaSystem.CurrentTimeMillis() - _start) * 0.025f, 0.25f, 1f, 0.15f);
-            GLMatrix.MultiplyMM(_mvp, 0, _vp, 0, _model, 0);
-            Draw(_cube, GLES30.GlTriangles, _cube.Length / 3, 0.2f, 0.72f, 0.95f);
+            var targetX = _cubeEntity.Transform.WorldPosition.X;
+            var targetY = _cubeEntity.Transform.WorldPosition.Y;
+            var targetZ = _cubeEntity.Transform.WorldPosition.Z;
+            var cp = MathF.Cos(_pitch);
+            var eyeX = targetX + _distance * cp * MathF.Sin(_yaw);
+            var eyeY = targetY + _distance * MathF.Sin(_pitch);
+            var eyeZ = targetZ + _distance * cp * MathF.Cos(_yaw);
+            GLMatrix.SetLookAtM(_view, 0, eyeX, eyeY, eyeZ, targetX, targetY, targetZ, 0f, 1f, 0f);
+            GLMatrix.MultiplyMM(_viewProjection, 0, _projection, 0, _view, 0);
+            var world = _cubeEntity.Transform.WorldMatrix;
+            _cubeModel[0]=world.M11; _cubeModel[1]=world.M12; _cubeModel[2]=world.M13; _cubeModel[3]=world.M14;
+            _cubeModel[4]=world.M21; _cubeModel[5]=world.M22; _cubeModel[6]=world.M23; _cubeModel[7]=world.M24;
+            _cubeModel[8]=world.M31; _cubeModel[9]=world.M32; _cubeModel[10]=world.M33; _cubeModel[11]=world.M34;
+            _cubeModel[12]=world.M41; _cubeModel[13]=world.M42; _cubeModel[14]=world.M43; _cubeModel[15]=world.M44;
+            var time = (Java.Lang.JavaSystem.CurrentTimeMillis() - _startMilliseconds) / 1000f;
+            NativeDraw(_viewProjection, _cubeModel, time);
         }
 
-        private void Draw(float[] points, int mode, int count, float r, float g, float b)
+        public void Orbit(float dx, float dy)
         {
-            GLES30.GlUniformMatrix4fv(GLES30.GlGetUniformLocation(_program, "uMvp"), 1, false, _mvp, 0);
-            GLES30.GlUniform3f(GLES30.GlGetUniformLocation(_program, "uColor"), r, g, b);
-            using var vertices = Java.Nio.ByteBuffer.AllocateDirect(points.Length * 4)
-                .Order(Java.Nio.ByteOrder.NativeOrder()).AsFloatBuffer();
-            vertices.Put(points);
-            vertices.Position(0);
-            GLES30.GlEnableVertexAttribArray(0);
-            GLES30.GlVertexAttribPointer(0, 3, GLES30.GlFloat, false, 0, vertices);
-            GLES30.GlDrawArrays(mode, 0, count);
-            GLES30.GlDisableVertexAttribArray(0);
+            _yaw -= dx * 0.008f;
+            _pitch = Math.Clamp(_pitch + dy * 0.008f, -1.35f, 1.35f);
         }
 
-        private static float[] BuildGrid()
+        public void Zoom(float factor)
         {
-            var values = new List<float>();
-            for (int i = -10; i <= 10; i++)
-            {
-                values.Add(i); values.Add(0f); values.Add(-10f);
-                values.Add(i); values.Add(0f); values.Add(10f);
-                values.Add(-10f); values.Add(0f); values.Add(i);
-                values.Add(10f); values.Add(0f); values.Add(i);
-            }
-            return values.ToArray();
+            if (factor <= 0 || float.IsNaN(factor)) return;
+            _distance = Math.Clamp(_distance / factor, 2.0f, 35.0f);
         }
+    }
 
-        private static float[] BuildCube()
+    private sealed class ScaleGestureListener : Android.Views.ScaleGestureDetector.SimpleOnScaleGestureListener
+    {
+        public Action<float>? OnScaleAction { get; init; }
+        public override bool OnScale(Android.Views.ScaleGestureDetector detector)
         {
-            var values = new List<float>();
-            void Face(float[] a, float[] b, float[] c, float[] d)
-            {
-                values.AddRange(a); values.AddRange(b); values.AddRange(c);
-                values.AddRange(a); values.AddRange(c); values.AddRange(d);
-            }
-            float[] p000={-0.5f,-0.5f,-0.5f}, p100={0.5f,-0.5f,-0.5f};
-            float[] p110={0.5f,0.5f,-0.5f}, p010={-0.5f,0.5f,-0.5f};
-            float[] p001={-0.5f,-0.5f,0.5f}, p101={0.5f,-0.5f,0.5f};
-            float[] p111={0.5f,0.5f,0.5f}, p011={-0.5f,0.5f,0.5f};
-            Face(p000,p100,p110,p010); Face(p101,p001,p011,p111);
-            Face(p001,p000,p010,p011); Face(p100,p101,p111,p110);
-            Face(p010,p110,p111,p011); Face(p001,p101,p100,p000);
-            return values.ToArray();
-        }
-
-        private static int Link(string vertex, string fragment)
-        {
-            var vs = Compile(GLES30.GlVertexShader, vertex);
-            var fs = Compile(GLES30.GlFragmentShader, fragment);
-            var program = GLES30.GlCreateProgram();
-            GLES30.GlAttachShader(program, vs); GLES30.GlAttachShader(program, fs); GLES30.GlLinkProgram(program);
-            var status = new int[1]; GLES30.GlGetProgramiv(program, GLES30.GlLinkStatus, status, 0);
-            if (status[0] == 0) throw new InvalidOperationException("Shader link failed: " + GLES30.GlGetProgramInfoLog(program));
-            GLES30.GlDeleteShader(vs); GLES30.GlDeleteShader(fs);
-            return program;
-        }
-
-        private static int Compile(int type, string source)
-        {
-            var shader = GLES30.GlCreateShader(type);
-            GLES30.GlShaderSource(shader, source); GLES30.GlCompileShader(shader);
-            var status = new int[1]; GLES30.GlGetShaderiv(shader, GLES30.GlCompileStatus, status, 0);
-            if (status[0] == 0) throw new InvalidOperationException("Shader compile failed: " + GLES30.GlGetShaderInfoLog(shader));
-            return shader;
+            OnScaleAction?.Invoke(detector.ScaleFactor);
+            return true;
         }
     }
 }
