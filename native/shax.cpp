@@ -231,6 +231,7 @@ extern "C" __attribute__((visibility("default"))) void shax_draw(const float* vi
                                                                     const float* cubeModel,
                                                                     float timeSeconds) {
     if (!sceneProgram || !skyProgram || !viewProjection) return;
+    const auto cpuStart = std::chrono::steady_clock::now();
     glClearColor(0.03f,0.05f,0.09f,1.0f);
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST); glUseProgram(skyProgram);
