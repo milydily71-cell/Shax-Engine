@@ -21,9 +21,9 @@ public sealed class ShaxViewport : GLSurfaceView
     private float _previousX, _previousY;
     private bool _wasScaling;
 
-    public ShaxViewport(Context context, Entity cubeEntity) : base(context)
+    public ShaxViewport(Context context, Scene scene, Entity cubeEntity) : base(context)
     {
-        _renderer = new ViewportRenderer(cubeEntity);
+        _renderer = new ViewportRenderer(scene, cubeEntity);
         _scaleDetector = new Android.Views.ScaleGestureDetector(context, new ScaleGestureListener { OnScaleAction = factor => QueueEvent(() => _renderer.Zoom(factor)) });
         SetEGLContextClientVersion(3);
         SetEGLConfigChooser(8, 8, 8, 8, 24, 8);
@@ -92,6 +92,7 @@ public sealed class ShaxViewport : GLSurfaceView
         private static extern void NativeShutdown();
 
         private readonly Entity _cubeEntity;
+        private readonly Scene _scene;
         private readonly float[] _projection = new float[16];
         private readonly float[] _view = new float[16];
         private readonly float[] _viewProjection = new float[16];
@@ -100,7 +101,7 @@ public sealed class ShaxViewport : GLSurfaceView
         private float _yaw = 0.65f, _pitch = 0.35f, _distance = 7.5f;
         private long _startMilliseconds;
 
-        public ViewportRenderer(Entity cubeEntity) => _cubeEntity = cubeEntity;
+        public ViewportRenderer(Scene scene, Entity cubeEntity) { _scene = scene; _cubeEntity = cubeEntity; }
 
         public void OnSurfaceCreated(IGL10? gl, EGLConfig? config)
         {
@@ -127,6 +128,7 @@ public sealed class ShaxViewport : GLSurfaceView
 
         public void OnDrawFrame(IGL10? gl)
         {
+            _scene.Tick(1f / 60f);
             var targetX = _cubeEntity.Transform.WorldPosition.X;
             var targetY = _cubeEntity.Transform.WorldPosition.Y;
             var targetZ = _cubeEntity.Transform.WorldPosition.Z;
