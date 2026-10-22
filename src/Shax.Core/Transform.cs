@@ -31,7 +31,7 @@ public class Transform
 
     public void Translate(Vector3 direction, float distance)
     {
-        if (direction.LengthSquared() < 1e-8f || !float.IsFinite(distance)) return;
+        if (direction.LengthSquared() < 1e-8f || (float.IsNaN(distance) || float.IsInfinity(distance))) return;
         LocalPosition += Vector3.Normalize(direction) * distance;
     }
 
