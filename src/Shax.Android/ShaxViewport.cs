@@ -6,6 +6,8 @@ using EGLConfig = Javax.Microedition.Khronos.Egl.EGLConfig;
 using EGLContext = Javax.Microedition.Khronos.Egl.EGLContext;
 using EGLDisplay = Javax.Microedition.Khronos.Egl.EGLDisplay;
 using EGL10 = Javax.Microedition.Khronos.Egl.EGL10;
+using IEGL10 = Javax.Microedition.Khronos.Egl.IEGL10;
+using GLMatrix = Android.Opengl.Matrix;
 using Javax.Microedition.Khronos.Opengles;
 
 namespace Shax.Android;
@@ -33,14 +35,14 @@ public sealed class ShaxViewport : GLSurfaceView
                 int[] attributes = minor == 0
                     ? new[] { 0x3098, 3, 0x3038 }
                     : new[] { 0x3098, 3, 0x30FB, minor, 0x3038 };
-                return egl.EglCreateContext(display, config, EGL10.EglNoContext, attributes);
+                return egl.EglCreateContext(display, config, IEGL10.EglNoContext, attributes);
             }
             var context = Try(2);
-            if (context != null && !context.Equals(EGL10.EglNoContext)) return context;
+            if (context != null && !context.Equals(IEGL10.EglNoContext)) return context;
             context = Try(1);
-            if (context != null && !context.Equals(EGL10.EglNoContext)) return context;
+            if (context != null && !context.Equals(IEGL10.EglNoContext)) return context;
             context = Try(0);
-            if (context == null || context.Equals(EGL10.EglNoContext))
+            if (context == null || context.Equals(IEGL10.EglNoContext))
                 throw new InvalidOperationException("Shax requires OpenGL ES 3.0 or newer.");
             return context;
         }
@@ -48,7 +50,7 @@ public sealed class ShaxViewport : GLSurfaceView
         public void DestroyContext(IEGL10? egl, EGLDisplay? display, EGLContext? context)
         {
             if (egl != null && display != null && context != null && !egl.EglDestroyContext(display, context))
-                Android.Util.Log.Error("ShaxEngine", "Failed to destroy EGL context.");
+                global::Android.Util.Log.Error("ShaxEngine", "Failed to destroy EGL context.");
         }
     }
 
@@ -70,7 +72,7 @@ public sealed class ShaxViewport : GLSurfaceView
         public void OnSurfaceCreated(IGL10? gl, EGLConfig? config)
         {
             var version = GLES30.GlGetString(GLES30.GlVersion) ?? "OpenGL ES";
-            Android.Util.Log.Info("ShaxEngine", "Viewport driver: " + version);
+            global::Android.Util.Log.Info("ShaxEngine", "Viewport driver: " + version);
             _program = Link(Vertex, Fragment);
             GLES30.GlEnable(GLES30.GlDepthTest);
             GLES30.GlDepthFunc(GLES30.GlLequal);
@@ -82,24 +84,24 @@ public sealed class ShaxViewport : GLSurfaceView
         {
             _width = Math.Max(1, width); _height = Math.Max(1, height);
             GLES30.GlViewport(0, 0, _width, _height);
-            Matrix.PerspectiveM(_projection, 0, 55f, (float)_width / _height, 0.1f, 100f);
+            GLMatrix.PerspectiveM(_projection, 0, 55f, (float)_width / _height, 0.1f, 100f);
         }
 
         public void OnDrawFrame(IGL10? gl)
         {
             GLES30.GlClear(GLES30.GlColorBufferBit | GLES30.GlDepthBufferBit);
-            Matrix.SetLookAtM(_view, 0, 3.6f, 2.8f, 4.8f, 0f, 0.5f, 0f, 0f, 1f, 0f);
-            Matrix.MultiplyMM(_vp, 0, _projection, 0, _view, 0);
+            GLMatrix.SetLookAtM(_view, 0, 3.6f, 2.8f, 4.8f, 0f, 0.5f, 0f, 0f, 1f, 0f);
+            GLMatrix.MultiplyMM(_vp, 0, _projection, 0, _view, 0);
             GLES30.GlUseProgram(_program);
 
-            Matrix.SetIdentityM(_model, 0);
-            Matrix.MultiplyMM(_mvp, 0, _vp, 0, _model, 0);
+            GLMatrix.SetIdentityM(_model, 0);
+            GLMatrix.MultiplyMM(_mvp, 0, _vp, 0, _model, 0);
             Draw(_grid, GLES30.GlLines, _grid.Length / 3, 0.23f, 0.32f, 0.42f);
 
-            Matrix.SetIdentityM(_model, 0);
-            Matrix.TranslateM(_model, 0, 0f, 0.52f, 0f);
-            Matrix.RotateM(_model, 0, (Java.Lang.JavaSystem.CurrentTimeMillis() - _start) * 0.025f, 0.25f, 1f, 0.15f);
-            Matrix.MultiplyMM(_mvp, 0, _vp, 0, _model, 0);
+            GLMatrix.SetIdentityM(_model, 0);
+            GLMatrix.TranslateM(_model, 0, 0f, 0.52f, 0f);
+            GLMatrix.RotateM(_model, 0, (Java.Lang.JavaSystem.CurrentTimeMillis() - _start) * 0.025f, 0.25f, 1f, 0.15f);
+            GLMatrix.MultiplyMM(_mvp, 0, _vp, 0, _model, 0);
             Draw(_cube, GLES30.GlTriangles, _cube.Length / 3, 0.2f, 0.72f, 0.95f);
         }
 
