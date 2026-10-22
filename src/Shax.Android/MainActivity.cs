@@ -35,6 +35,8 @@ public sealed class MainActivity : Activity
     private TextView? _roughnessValue, _metallicValue;
     private SeekBar? _roughnessSeek, _metallicSeek;
     private EditText? _positionX, _positionY, _positionZ;
+    private EditText? _rotationX, _rotationY, _rotationZ;
+    private EditText? _scaleX, _scaleY, _scaleZ;
     private readonly Stack<Vector3> _undo = new();
     private readonly Stack<Vector3> _redo = new();
     private bool _highlighting;
@@ -116,7 +118,21 @@ public sealed class MainActivity : Activity
         positionRow.AddView(_positionY, new LinearLayout.LayoutParams(0, -2, 1));
         positionRow.AddView(_positionZ, new LinearLayout.LayoutParams(0, -2, 1));
         _hierarchyPanel.AddView(positionRow);
-        AddAction(_hierarchyPanel, "Apply Position", ApplyTransform);
+        _hierarchyPanel.AddView(Label("ROTATION (DEGREES)", 11, true));
+        var rotationRow = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+        _rotationX = NumberField("X°"); _rotationY = NumberField("Y°"); _rotationZ = NumberField("Z°");
+        rotationRow.AddView(_rotationX, new LinearLayout.LayoutParams(0, -2, 1));
+        rotationRow.AddView(_rotationY, new LinearLayout.LayoutParams(0, -2, 1));
+        rotationRow.AddView(_rotationZ, new LinearLayout.LayoutParams(0, -2, 1));
+        _hierarchyPanel.AddView(rotationRow);
+        _hierarchyPanel.AddView(Label("LOCAL SCALE", 11, true));
+        var scaleRow = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+        _scaleX = NumberField("X"); _scaleY = NumberField("Y"); _scaleZ = NumberField("Z");
+        scaleRow.AddView(_scaleX, new LinearLayout.LayoutParams(0, -2, 1));
+        scaleRow.AddView(_scaleY, new LinearLayout.LayoutParams(0, -2, 1));
+        scaleRow.AddView(_scaleZ, new LinearLayout.LayoutParams(0, -2, 1));
+        _hierarchyPanel.AddView(scaleRow);
+        AddAction(_hierarchyPanel, "Apply Transform", ApplyTransform);
         _workspace.AddView(_hierarchyPanel, new FrameLayout.LayoutParams(-1, 260, GravityFlags.Bottom));
         _hierarchyPanel.Visibility = ViewStates.Gone;
 
@@ -243,18 +259,30 @@ public sealed class MainActivity : Activity
         if (_positionX != null) _positionX.Text = _cubeEntity.Transform.LocalPosition.X.ToString("0.###");
         if (_positionY != null) _positionY.Text = _cubeEntity.Transform.LocalPosition.Y.ToString("0.###");
         if (_positionZ != null) _positionZ.Text = _cubeEntity.Transform.LocalPosition.Z.ToString("0.###");
+        var euler = _cubeEntity.Transform.LocalRotation;
+        if (_rotationX != null) _rotationX.Text = (MathF.Atan2(2f * (euler.W * euler.X + euler.Y * euler.Z), 1f - 2f * (euler.X * euler.X + euler.Y * euler.Y)) * 180f / MathF.PI).ToString("0.###");
+        if (_rotationY != null) _rotationY.Text = MathF.Asin(Math.Clamp(2f * (euler.W * euler.Y - euler.Z * euler.X), -1f, 1f)) .ToString("0.###");
+        if (_rotationZ != null) _rotationZ.Text = (MathF.Atan2(2f * (euler.W * euler.Z + euler.X * euler.Y), 1f - 2f * (euler.Y * euler.Y + euler.Z * euler.Z)) * 180f / MathF.PI).ToString("0.###");
+        if (_scaleX != null) _scaleX.Text = _cubeEntity.Transform.LocalScale.X.ToString("0.###");
+        if (_scaleY != null) _scaleY.Text = _cubeEntity.Transform.LocalScale.Y.ToString("0.###");
+        if (_scaleZ != null) _scaleZ.Text = _cubeEntity.Transform.LocalScale.Z.ToString("0.###");
     }
 
     private void ApplyTransform()
     {
         if (_cubeEntity is null) return;
-        if (!float.TryParse(_positionX?.Text, out var x) || !float.TryParse(_positionY?.Text, out var y) || !float.TryParse(_positionZ?.Text, out var z))
+        if (!float.TryParse(_positionX?.Text, out var x) || !float.TryParse(_positionY?.Text, out var y) || !float.TryParse(_positionZ?.Text, out var z)
+            || !float.TryParse(_rotationX?.Text, out var rx) || !float.TryParse(_rotationY?.Text, out var ry) || !float.TryParse(_rotationZ?.Text, out var rz)
+            || !float.TryParse(_scaleX?.Text, out var sx) || !float.TryParse(_scaleY?.Text, out var sy) || !float.TryParse(_scaleZ?.Text, out var sz))
         {
-            SetStatus("Transform error: enter valid numeric X, Y and Z values."); return;
+            SetStatus("Transform error: enter valid numeric position, rotation and scale values."); return;
         }
         _undo.Push(_cubeEntity.Transform.LocalPosition); _redo.Clear();
         _cubeEntity.Transform.LocalPosition = new Vector3(x, y, z);
-        SetStatus("Cube transform applied to the live native viewport.");
+        const float radians = MathF.PI / 180f;
+        _cubeEntity.Transform.LocalRotation = Quaternion.Normalize(Quaternion.CreateFromYawPitchRoll(ry * radians, rx * radians, rz * radians));
+        _cubeEntity.Transform.LocalScale = new Vector3(sx, sy, sz);
+        SetStatus("Position, rotation and scale applied to the live native viewport.");
     }
 
     private void UndoTransform()
