@@ -7,7 +7,7 @@
 
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "ShaxNative", __VA_ARGS__)
 namespace {
-GLuint sceneProgram = 0, skyProgram = 0, sceneVbo = 0, skyVao = 0;
+GLuint sceneProgram = 0, skyProgram = 0, sceneVbo = 0;
 GLint sceneMvp = -1;
 GLint skyTime = -1;
 GLsizei gridCount = 0, cubeCount = 0;
