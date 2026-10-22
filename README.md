@@ -2,6 +2,13 @@
 
 Shax is a mobile-first 3D engine/editor prototype built around a C# engine API, a .NET 10 Android host, and a native C++ OpenGL ES renderer.
 
+
+## Rendering and scripting
+
+The mobile viewport reconstructs world-space sky rays from the inverse camera view-projection matrix. The sun and animated cloud field therefore remain anchored to the world when the orbit camera rotates. A bounded 12-step procedural cloud-density integration runs on the GLES 3.0 shader baseline; this remains an approximation, not a physically complete atmosphere.
+
+The Script IDE has an **Examples** picker with runnable rotation, position and scale templates. The examples are also checked into [examples/scripts](examples/scripts). Scripts execute through the deliberately restricted AOT-safe C# subset; this is not a general-purpose Roslyn compiler.
+
 ## Architecture
 
 - `src/Shax.Core`: engine-neutral C# API, scene/entity lifecycle, transform hierarchy/world matrices, camera/light/material/mesh-renderer contracts, stable entity IDs and JSON scene serialization.
