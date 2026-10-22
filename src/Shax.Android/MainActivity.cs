@@ -32,7 +32,8 @@ public sealed class MainActivity : Activity
     private EditText? _positionX, _positionY, _positionZ;
     private readonly Stack<Vector3> _undo = new();
     private readonly Stack<Vector3> _redo = new();
-    private bool _highlighting;\n    private RuntimeScriptBehaviour? _runtimeScript;
+    private bool _highlighting;
+    private RuntimeScriptBehaviour? _runtimeScript;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -40,7 +41,6 @@ public sealed class MainActivity : Activity
         Window?.SetFlags(WindowManagerFlags.KeepScreenOn, WindowManagerFlags.KeepScreenOn);
         _cubeEntity = _scene.CreateEntity("Cube");
         _cubeEntity.Transform.LocalPosition = new Vector3(0f, 0.5f, 0f);
-        _cubeEntity.AddComponent(new PreviewSpinBehaviour());
         BuildEditorShell();
         LoadScript();
         LoadScene();
@@ -71,9 +71,8 @@ public sealed class MainActivity : Activity
         _viewport = new ShaxViewport(this, _scene, _cubeEntity!);
         _workspace.AddView(_viewport, new FrameLayout.LayoutParams(-1, -1));
 
-        var scriptPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        _scriptPanel = scriptPanel;
-        scriptPanel.SetBackgroundColor(Android.Graphics.Color.Rgb(25, 31, 42));
+        _scriptPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        _scriptPanel.SetBackgroundColor(Android.Graphics.Color.Rgb(25, 31, 42));
         _scriptEditor = new EditText(this)
         {
             Text = ScriptDocument.DefaultSource,
@@ -85,13 +84,13 @@ public sealed class MainActivity : Activity
         _scriptEditor.SetTextColor(Android.Graphics.Color.Rgb(225, 233, 245));
         _scriptEditor.SetBackgroundColor(Android.Graphics.Color.Rgb(25, 31, 42));
         _scriptEditor.SetPadding(12, 12, 12, 12);
-        scriptPanel.AddView(_scriptEditor, new LinearLayout.LayoutParams(-1, 0, 1));
+        _scriptPanel.AddView(_scriptEditor, new LinearLayout.LayoutParams(-1, 0, 1));
         _diagnostics = Label("Diagnostics: waiting for edits", 11, false);
         _diagnostics.SetPadding(10, 6, 10, 6);
-        scriptPanel.AddView(_diagnostics, new LinearLayout.LayoutParams(-1, -2));
+        _scriptPanel.AddView(_diagnostics, new LinearLayout.LayoutParams(-1, -2));
         _scriptEditor.TextChanged += (_, _) => { ApplySyntaxHighlighting(); UpdateDiagnostics(); };
-        _workspace.AddView(scriptPanel, new FrameLayout.LayoutParams(-1, -1));
-        scriptPanel.Visibility = ViewStates.Gone;
+        _workspace.AddView(_scriptPanel, new FrameLayout.LayoutParams(-1, -1));
+        _scriptPanel.Visibility = ViewStates.Gone;
 
         _hierarchyPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
         _hierarchyPanel.SetPadding(12, 10, 12, 10);
@@ -112,7 +111,7 @@ public sealed class MainActivity : Activity
         _workspace.AddView(_hierarchyPanel, new FrameLayout.LayoutParams(-1, 260, GravityFlags.Bottom));
         _hierarchyPanel.Visibility = ViewStates.Gone;
 
-        _assetPanel = Label("ASSET BROWSER\n\nScripts/\n  PlayerScript.cs\n\nScenes/\n  MainScene.shax.json\n\nTextures/\n  Drop image assets here (import pipeline pending)\n\nModels/\n  GLB/glTF importer pending", 14, false);
+        _assetPanel = Label("ASSET BROWSER\n\nScripts/\n  PlayerScript.cs\n\nScenes/\n  MainScene.shax.json\n\nTextures/\n  Image import pending\n\nModels/\n  GLB/glTF importer pending", 14, false);
         _assetPanel.SetPadding(16, 16, 16, 16);
         _assetPanel.SetBackgroundColor(Android.Graphics.Color.Rgb(24, 30, 40));
         _workspace.AddView(_assetPanel, new FrameLayout.LayoutParams(-1, -1));
@@ -133,7 +132,8 @@ public sealed class MainActivity : Activity
 
     private EditText NumberField(string label) => new(this)
     {
-        Hint = label, InputType = Android.Text.InputTypes.ClassNumber | Android.Text.InputTypes.NumberFlagDecimal | Android.Text.InputTypes.NumberFlagSigned,
+        Hint = label,
+        InputType = Android.Text.InputTypes.ClassNumber | Android.Text.InputTypes.NumberFlagDecimal | Android.Text.InputTypes.NumberFlagSigned,
         TextSize = 14
     };
 
@@ -162,7 +162,7 @@ public sealed class MainActivity : Activity
         if (panel == "scene") RefreshInspector();
         SetStatus(panel switch {
             "scene" => "Scene • hierarchy, transform inspector and live viewport",
-            "script" => "Script IDE • C# syntax colors and static diagnostics; runtime compilation pending",
+            "script" => "Script IDE • restricted AOT-safe C# subset and diagnostics",
             "assets" => "Asset browser • project tree prototype",
             _ => "Console • native and editor messages"
         });
@@ -202,6 +202,28 @@ public sealed class MainActivity : Activity
         _cubeEntity.Transform.LocalPosition = _redo.Pop(); RefreshInspector();
     }
 
+    private void CompileAndPlay()
+    {
+        if (_cubeEntity is null || _scriptEditor is null) return;
+        var result = CSharpSubsetRuntime.Compile(_scriptEditor.Text?.ToString() ?? string.Empty);
+        if (_diagnostics != null)
+            _diagnostics.Text = string.Join("\n", result.Diagnostics.Select(d => $"{d.Severity} L{d.Line}:{d.Column} — {d.Message}"));
+        if (!result.Success || result.Program is null)
+        {
+            ShowPanel("script");
+            SetStatus("Script rejected by the safe subset; see diagnostics.");
+            return;
+        }
+        if (_runtimeScript is null)
+        {
+            _runtimeScript = new RuntimeScriptBehaviour(result.Program, SetStatus);
+            _cubeEntity.AddComponent(_runtimeScript);
+        }
+        else _runtimeScript.Program = result.Program;
+        ShowPanel("scene");
+        SetStatus("AOT-safe Shax C# subset compiled and running.");
+    }
+
     private void ApplySyntaxHighlighting()
     {
         if (_highlighting || _scriptEditor?.Text is not IEditable editable) return;
@@ -230,7 +252,7 @@ public sealed class MainActivity : Activity
         if (braces != 0) errors.Add("unbalanced braces");
         if (parens != 0) errors.Add("unbalanced parentheses");
         if (_diagnostics != null) _diagnostics.Text = errors.Count == 0
-            ? "Diagnostics: no basic delimiter errors • C# compiler not connected"
+            ? "Diagnostics: no basic delimiter errors • press Play to compile safe subset"
             : "Diagnostics: " + string.Join(", ", errors);
     }
 
@@ -276,7 +298,7 @@ public sealed class MainActivity : Activity
     {
         try
         {
-            using var stream = OpenFileInput("MainScene.shax.json");
+            using var stream = OpenFileInput("MainScene.shax.json") ?? throw new System.IO.IOException("Could not open scene file.");
             using var reader = new System.IO.StreamReader(stream);
             var restored = SceneSerializer.Deserialize(reader.ReadToEnd());
             var savedCube = restored.Entities.FirstOrDefault(e => e.Name == "Cube");
@@ -305,9 +327,23 @@ public sealed class MainActivity : Activity
     }
     protected override void OnResume() { base.OnResume(); _viewport?.OnResume(); }
 
-    private sealed class PreviewSpinBehaviour : ShaxBehaviour
+    private sealed class RuntimeScriptBehaviour : ShaxBehaviour
     {
-        public override void Update(float deltaTime) => Transform.Rotate(Vector3.UnitY, 32f * deltaTime);
+        private readonly Action<string> _onError;
+        public ScriptProgram? Program { get; set; }
+        public RuntimeScriptBehaviour(ScriptProgram program, Action<string> onError)
+        {
+            Program = program; _onError = onError;
+        }
+        public override void Update(float deltaTime)
+        {
+            try { Program?.Execute(this, deltaTime); }
+            catch (Exception ex)
+            {
+                Program = null;
+                _onError("Script runtime stopped safely: " + ex.Message);
+            }
+        }
     }
 
     private sealed class ClickAction : Java.Lang.Object, View.IOnClickListener
