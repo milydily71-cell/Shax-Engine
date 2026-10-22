@@ -41,6 +41,7 @@ public class Entity
             behaviour.Entity = this;
         }
         _components.Add(component);
+        if (component is IEntityComponent attached) attached.OnAttached(this);
         return component;
     }
 
