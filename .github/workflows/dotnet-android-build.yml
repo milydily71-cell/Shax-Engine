@@ -8,8 +8,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: shax-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
+    timeout-minutes: 30
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -88,6 +93,7 @@ jobs:
           if-no-files-found: error
 
   emulator-smoke-test:
+    timeout-minutes: 15
     needs: build-and-test
     runs-on: ubuntu-24.04
     steps:
