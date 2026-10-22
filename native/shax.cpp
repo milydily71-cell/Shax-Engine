@@ -154,18 +154,22 @@ void main(){
  float cloudBand=smoothstep(-0.04,0.05,ray.y)* (1.0-smoothstep(0.34,0.48,ray.y));
  vec2 cloudUv=ray.xz/max(ray.y+0.22,0.16);
  cloudUv=cloudUv*1.65+vec2(uTime*0.006,-uTime*0.003);
- float coverage=0.0, detail=0.0;
- for(int i=0;i<4;i++){
-   float scale=1.0+float(i)*1.73;
-   float weight=1.0/(1.0+float(i)*0.9);
-   coverage+=noise3(vec3(cloudUv*scale,cloudHeight+float(i)*0.13))*weight;
-   detail+=weight;
- }
- coverage/=detail;
- float density=smoothstep(0.49,0.69,coverage)*cloudBand;
+ float transmittance=1.0;
+ vec3 cloudRadiance=vec3(0.0);
  float silverLining=pow(max(dot(ray,sunDirection),0.0),5.0)*0.18;
- vec3 cloudColor=mix(vec3(0.37,0.46,0.60),vec3(0.96,0.98,1.0),clamp(ray.y*2.0+0.4,0.0,1.0))+silverLining;
- sky=mix(sky,cloudColor,clamp(density*0.9,0.0,0.92));
+ for(int i=0;i<12;i++){
+   float stepDepth=(float(i)+0.5)/12.0;
+   vec2 advected=cloudUv+vec2(uTime*0.006,-uTime*0.003);
+   vec3 samplePoint=vec3(advected*(1.0+stepDepth*0.48),cloudHeight+stepDepth*2.6);
+   float broad=noise3(samplePoint*1.35);
+   float detail=noise3(samplePoint*3.1+vec3(7.2,1.8,4.1));
+   float density=smoothstep(0.48,0.72,broad*0.78+detail*0.22)*cloudBand*0.12;
+   float alpha=1.0-exp(-density);
+   vec3 litCloud=mix(vec3(0.31,0.39,0.52),vec3(0.96,0.98,1.0),clamp(ray.y*2.0+0.4,0.0,1.0))+silverLining;
+   cloudRadiance+=transmittance*alpha*litCloud;
+   transmittance*=1.0-alpha;
+ }
+ sky=sky*transmittance+cloudRadiance;
  fragColor=vec4(max(sky,vec3(0.0)),1.0);
 })";
 
