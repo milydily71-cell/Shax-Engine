@@ -17,17 +17,14 @@ namespace Shax.Android;
 public sealed class ShaxViewport : GLSurfaceView
 {
     private readonly ViewportRenderer _renderer;
-    private readonly ScaleGestureDetector _scaleDetector;
+    private readonly Android.Views.ScaleGestureDetector _scaleDetector;
     private float _previousX, _previousY;
     private bool _wasScaling;
 
     public ShaxViewport(Context context, Entity cubeEntity) : base(context)
     {
         _renderer = new ViewportRenderer(cubeEntity);
-        _scaleDetector = new ScaleGestureDetector(context, new ScaleGestureDetector.SimpleOnScaleGestureListener
-        {
-            OnScaleAction = factor => QueueEvent(() => _renderer.Zoom(factor))
-        });
+        _scaleDetector = new Android.Views.ScaleGestureDetector(context, new ScaleGestureListener { OnScaleAction = factor => QueueEvent(() => _renderer.Zoom(factor)) });
         SetEGLContextClientVersion(3);
         SetEGLConfigChooser(8, 8, 8, 8, 24, 8);
         SetEGLContextFactory(new Es32OrEs30ContextFactory());
@@ -81,11 +78,6 @@ public sealed class ShaxViewport : GLSurfaceView
             if (egl is not null && display is not null && context is not null && !egl.EglDestroyContext(display, context))
                 global::Android.Util.Log.Error("ShaxEngine", "Failed to destroy EGL context.");
         }
-    }
-
-    private sealed class ScaleGestureDetector : Android.Views.ScaleGestureDetector
-    {
-        public ScaleGestureDetector(Context context, SimpleOnScaleGestureListener listener) : base(context, listener) { }
     }
 
     private sealed class ViewportRenderer : Java.Lang.Object, GLSurfaceView.IRenderer
