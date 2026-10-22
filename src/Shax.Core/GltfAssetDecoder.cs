@@ -455,7 +455,11 @@ public static class GltfAssetDecoder
     private static string Str(JsonElement e, string name, string fallback) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? fallback : fallback;
     private static bool Bool(JsonElement e, string name, bool fallback) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && (v.ValueKind == JsonValueKind.True || v.ValueKind == JsonValueKind.False) ? v.GetBoolean() : fallback;
     private static int[] IntArray(JsonElement e, string name) => ReadArray(e,name).Select(x => x.TryGetInt32(out var n) ? n : -1).ToArray();
-    private static float[] FloatArray(JsonElement e, string name, float[] fallback) => ReadArray(e,name).Select(x => x.TryGetSingle(out var f) ? f : 0f).DefaultIfEmpty().Count() == 0 ? fallback : ReadArray(e,name).Select(x => x.TryGetSingle(out var f) ? f : 0f).ToArray();
+    private static float[] FloatArray(JsonElement e, string name, float[] fallback)
+    {
+        var items = ReadArray(e, name).ToArray();
+        return items.Length == 0 ? fallback : items.Select(x => x.TryGetSingle(out var f) ? f : 0f).ToArray();
+    }
     private static int TextureIndex(JsonElement e, string name) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var texture) ? Int(texture,"index",-1) : -1;
     private static byte[] DecodeDataUri(string uri, out string mime)
     {
