@@ -16,7 +16,8 @@ final class ShaxSurface extends GLSurfaceView {
 
     ShaxSurface(Context context) {
         super(context);
-        // Prefer an ES 3.1 context; fall back to ES 3.0 if the driver rejects minor-version attributes.
+        // Ask GLSurfaceView for an ES 3-capable EGL config, then prefer ES 3.1 and fall back to 3.0.
+        setEGLContextClientVersion(3);
         setEGLContextFactory(new EGLContextFactory() {
             private final int EGL_CONTEXT_MAJOR_VERSION_KHR = 0x3098;
             private final int EGL_CONTEXT_MINOR_VERSION_KHR = 0x30FB;
