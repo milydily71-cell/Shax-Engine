@@ -381,6 +381,73 @@ extern "C" __attribute__((visibility("default"))) void shax_draw(const float* vi
         LOGI("CPU render submission=%lld us; geometry memory estimate=%zu bytes; frames=%llu", (long long)cpuUs, geometryBytes, (unsigned long long)frameCounter);
     }
 }
+extern "C" __attribute__((visibility("default"))) int shax_upload_mesh(const float* vertices, int vertexCount, const uint32_t* indices, int indexCount) {
+    if (!vertices || !indices || vertexCount <= 0 || indexCount <= 0 || indexCount > 12000000 || vertexCount > 4000000) return 0;
+    if (importedVbo) glDeleteBuffers(1, &importedVbo);
+    if (importedEbo) glDeleteBuffers(1, &importedEbo);
+    importedVbo = importedEbo = 0;
+    glGenBuffers(1, &importedVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, importedVbo);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(static_cast<size_t>(vertexCount) * 17u * sizeof(float)), vertices, GL_STATIC_DRAW);
+    glGenBuffers(1, &importedEbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, importedEbo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(static_cast<size_t>(indexCount) * sizeof(uint32_t)), indices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0); glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    importedIndexCount = indexCount;
+    const auto error = glGetError();
+    if (error != GL_NO_ERROR) { LOGE("Imported mesh upload failed: GL error=0x%x", error); importedIndexCount = 0; return 0; }
+    LOGI("Imported mesh uploaded: vertices=%d indices=%d bytes=%zu", vertexCount, indexCount,
+         static_cast<size_t>(vertexCount) * 17u * sizeof(float) + static_cast<size_t>(indexCount) * sizeof(uint32_t));
+    return 1;
+}
+extern "C" __attribute__((visibility("default"))) void shax_set_skin_matrices(const float* matrices, int jointCount) {
+    skinMatrixCount = std::clamp(jointCount, 0, 32);
+    std::fill(std::begin(skinMatrices), std::end(skinMatrices), 0.0f);
+    if (matrices && skinMatrixCount > 0)
+        std::copy(matrices, matrices + static_cast<size_t>(skinMatrixCount) * 16u, skinMatrices);
+}
+extern "C" __attribute__((visibility("default"))) void shax_clear_imported_mesh() {
+    if (importedVbo) glDeleteBuffers(1, &importedVbo);
+    if (importedEbo) glDeleteBuffers(1, &importedEbo);
+    importedVbo = importedEbo = 0; importedIndexCount = 0; skinMatrixCount = 0;
+}
+extern "C" __attribute__((visibility("default"))) void shax_draw_imported(const float* viewProjection, const float* modelInput,
+                                                                             float roughness, float metallic) {
+    if (!pbrProgram || !importedVbo || !importedEbo || importedIndexCount <= 0 || !viewProjection || !modelInput) {
+        if (importedIndexCount == 0) endGpuTiming();
+        return;
+    }
+    float model[16]; modelMatrix(model, modelInput);
+    float mvp[16]{};
+    for (int col=0;col<4;col++) for (int row=0;row<4;row++)
+        for (int k=0;k<4;k++) mvp[col*4+row] += viewProjection[k*4+row] * model[col*4+k];
+    glUseProgram(pbrProgram);
+    glBindBuffer(GL_ARRAY_BUFFER, importedVbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, importedEbo);
+    glEnableVertexAttribArray(0); glEnableVertexAttribArray(1); glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3); glEnableVertexAttribArray(4);
+    glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,17*sizeof(float),nullptr);
+    glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,17*sizeof(float),reinterpret_cast<void*>(3*sizeof(float)));
+    glVertexAttribPointer(2,3,GL_FLOAT,GL_FALSE,17*sizeof(float),reinterpret_cast<void*>(6*sizeof(float)));
+    glVertexAttribPointer(3,4,GL_FLOAT,GL_FALSE,17*sizeof(float),reinterpret_cast<void*>(9*sizeof(float)));
+    glVertexAttribPointer(4,4,GL_FLOAT,GL_FALSE,17*sizeof(float),reinterpret_cast<void*>(13*sizeof(float)));
+    glUniformMatrix4fv(pbrMvp,1,GL_FALSE,mvp); glUniformMatrix4fv(pbrModel,1,GL_FALSE,model);
+    if (pbrCamera>=0) glUniform3f(pbrCamera,cameraX,cameraY,cameraZ);
+    if (pbrRoughness>=0) glUniform1f(pbrRoughness,std::clamp(roughness,0.04f,1.0f));
+    if (pbrMetallic>=0) glUniform1f(pbrMetallic,std::clamp(metallic,0.0f,1.0f));
+    if (pbrLight>=0) glUniform3f(pbrLight,-0.4f,-0.8f,-0.25f);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_CUBE_MAP,environmentCube);
+    if (pbrEnvironment>=0) glUniform1i(pbrEnvironment,0);
+    const int skinCount = std::clamp(skinMatrixCount,0,32);
+    if (pbrJointCount>=0) glUniform1i(pbrJointCount,skinCount);
+    if (pbrSkinned>=0) glUniform1i(pbrSkinned,skinCount>0?1:0);
+    if (pbrJointMatrices>=0 && skinCount>0) glUniformMatrix4fv(pbrJointMatrices,skinCount,GL_FALSE,skinMatrices);
+    glDrawElements(GL_TRIANGLES, importedIndexCount, GL_UNSIGNED_INT, nullptr);
+    glDisableVertexAttribArray(4); glDisableVertexAttribArray(3); glDisableVertexAttribArray(2);
+    glDisableVertexAttribArray(1); glDisableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER,0); glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
+    endGpuTiming();
+}
 extern "C" __attribute__((visibility("default"))) void shax_shutdown() {
     if (sceneVbo) glDeleteBuffers(1,&sceneVbo);
     if (cubeVbo) glDeleteBuffers(1,&cubeVbo);
@@ -388,8 +455,11 @@ extern "C" __attribute__((visibility("default"))) void shax_shutdown() {
     if (pbrProgram) glDeleteProgram(pbrProgram);
     if (sceneProgram) glDeleteProgram(sceneProgram);
     if (skyProgram) glDeleteProgram(skyProgram);
+    if (importedVbo) glDeleteBuffers(1,&importedVbo);
+    if (importedEbo) glDeleteBuffers(1,&importedEbo);
     if (gpuTimingEnabled && deleteQueriesExt) deleteQueriesExt(4, gpuQueries);
     gpuTimingEnabled = false; gpuQueryActive = false;
     for (int i=0;i<4;i++) { gpuQueries[i]=0; gpuQueryPending[i]=false; }
-    sceneVbo=cubeVbo=environmentCube=sceneProgram=pbrProgram=skyProgram=0;
+    sceneVbo=cubeVbo=environmentCube=importedVbo=importedEbo=sceneProgram=pbrProgram=skyProgram=0;
+    importedIndexCount=0; skinMatrixCount=0;
 }
