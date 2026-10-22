@@ -320,7 +320,7 @@ void modelMatrix(float* m, const float* transform) {
 }
 extern "C" __attribute__((visibility("default"))) int shax_init() {
     // EGL context recreation invalidates all prior GL object names.
-    sceneProgram=0; pbrProgram=0; skyProgram=0; sceneVbo=0; cubeVbo=0; environmentCube=0; importedVbo=0; importedEbo=0; importedBaseColorTexture=0;
+    sceneProgram=0; pbrProgram=0; skyProgram=0; sceneVbo=0; cubeVbo=0; baseplateVbo=0; environmentCube=0; importedVbo=0; importedEbo=0; importedBaseColorTexture=0;
     importedIndexCount=0; skinMatrixCount=0; std::fill(std::begin(skinMatrices),std::end(skinMatrices),0.0f);
     gpuTimingEnabled=false; gpuQueryActive=false; gpuQueryCursor=0; gpuTimingFrame=0;
     std::fill(std::begin(gpuQueries),std::end(gpuQueries),0u); std::fill(std::begin(gpuQueryPending),std::end(gpuQueryPending),false);
@@ -342,6 +342,17 @@ extern "C" __attribute__((visibility("default"))) int shax_init() {
                  sceneVertices.data(),GL_STATIC_DRAW);
     glGenBuffers(1,&cubeVbo); glBindBuffer(GL_ARRAY_BUFFER,cubeVbo);
     glBufferData(GL_ARRAY_BUFFER,static_cast<GLsizeiptr>(cubeVertices.size()*sizeof(float)),cubeVertices.data(),GL_STATIC_DRAW);
+    // A large neutral ground plane sits beneath the origin-following editor grid.
+    const float baseplate[] = {
+        -5000.0f,-0.035f,-5000.0f, 0.055f,0.070f,0.095f,
+         5000.0f,-0.035f,-5000.0f, 0.055f,0.070f,0.095f,
+         5000.0f,-0.035f, 5000.0f, 0.055f,0.070f,0.095f,
+        -5000.0f,-0.035f,-5000.0f, 0.055f,0.070f,0.095f,
+         5000.0f,-0.035f, 5000.0f, 0.055f,0.070f,0.095f,
+        -5000.0f,-0.035f, 5000.0f, 0.055f,0.070f,0.095f
+    };
+    glGenBuffers(1,&baseplateVbo); glBindBuffer(GL_ARRAY_BUFFER,baseplateVbo);
+    glBufferData(GL_ARRAY_BUFFER,sizeof(baseplate),baseplate,GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER,0);
     const char* version=reinterpret_cast<const char*>(glGetString(GL_VERSION));
     LOGI("PBR/IBL cube and bounded volumetric sky enabled; driver=%s",version?version:"unknown");
@@ -367,6 +378,13 @@ extern "C" __attribute__((visibility("default"))) void shax_draw(const float* vi
     if (skyCamera>=0) glUniform3f(skyCamera,cameraX,cameraY,cameraZ);
     glDrawArrays(GL_TRIANGLES,0,3); glEnable(GL_DEPTH_TEST);
     glUseProgram(sceneProgram);
+    glBindBuffer(GL_ARRAY_BUFFER,baseplateVbo);
+    glEnableVertexAttribArray(0); glEnableVertexAttribArray(1);
+    glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,6*sizeof(float),nullptr);
+    glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,6*sizeof(float),reinterpret_cast<void*>(3*sizeof(float)));
+    glUniformMatrix4fv(sceneMvp,1,GL_FALSE,viewProjection);
+    glDrawArrays(GL_TRIANGLES,0,6);
+    glDisableVertexAttribArray(0); glDisableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER,sceneVbo);
     glEnableVertexAttribArray(0); glEnableVertexAttribArray(1);
     glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,6*sizeof(float),nullptr);
@@ -515,6 +533,7 @@ extern "C" __attribute__((visibility("default"))) void shax_draw_imported(const 
 extern "C" __attribute__((visibility("default"))) void shax_shutdown() {
     if (sceneVbo) glDeleteBuffers(1,&sceneVbo);
     if (cubeVbo) glDeleteBuffers(1,&cubeVbo);
+    if (baseplateVbo) glDeleteBuffers(1,&baseplateVbo);
     if (environmentCube) glDeleteTextures(1,&environmentCube);
     if (pbrProgram) glDeleteProgram(pbrProgram);
     if (sceneProgram) glDeleteProgram(sceneProgram);
@@ -525,6 +544,6 @@ extern "C" __attribute__((visibility("default"))) void shax_shutdown() {
     if (gpuTimingEnabled && deleteQueriesExt) deleteQueriesExt(4, gpuQueries);
     gpuTimingEnabled = false; gpuQueryActive = false;
     for (int i=0;i<4;i++) { gpuQueries[i]=0; gpuQueryPending[i]=false; }
-    sceneVbo=cubeVbo=environmentCube=importedVbo=importedEbo=importedBaseColorTexture=sceneProgram=pbrProgram=skyProgram=0;
+    sceneVbo=cubeVbo=baseplateVbo=environmentCube=importedVbo=importedEbo=importedBaseColorTexture=sceneProgram=pbrProgram=skyProgram=0;
     importedIndexCount=0; skinMatrixCount=0;
 }
