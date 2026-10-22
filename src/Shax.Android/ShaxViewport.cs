@@ -17,14 +17,14 @@ namespace Shax.Android;
 public sealed class ShaxViewport : GLSurfaceView
 {
     private readonly ViewportRenderer _renderer;
-    private readonly Android.Views.ScaleGestureDetector _scaleDetector;
+    private readonly global::Android.Views.ScaleGestureDetector _scaleDetector;
     private float _previousX, _previousY;
     private bool _wasScaling;
 
     public ShaxViewport(Context context, Scene scene, Entity cubeEntity) : base(context)
     {
         _renderer = new ViewportRenderer(scene, cubeEntity);
-        _scaleDetector = new Android.Views.ScaleGestureDetector(context, new ScaleGestureListener { OnScaleAction = factor => QueueEvent(() => _renderer.Zoom(factor)) });
+        _scaleDetector = new global::Android.Views.ScaleGestureDetector(context, new ScaleGestureListener { OnScaleAction = factor => QueueEvent(() => _renderer.Zoom(factor)) });
         SetEGLContextClientVersion(3);
         SetEGLConfigChooser(8, 8, 8, 8, 24, 8);
         SetEGLContextFactory(new Es32OrEs30ContextFactory());
@@ -160,10 +160,10 @@ public sealed class ShaxViewport : GLSurfaceView
         }
     }
 
-    private sealed class ScaleGestureListener : Android.Views.ScaleGestureDetector.SimpleOnScaleGestureListener
+    private sealed class ScaleGestureListener : global::Android.Views.ScaleGestureDetector.SimpleOnScaleGestureListener
     {
         public Action<float>? OnScaleAction { get; init; }
-        public override bool OnScale(Android.Views.ScaleGestureDetector detector)
+        public override bool OnScale(global::Android.Views.ScaleGestureDetector detector)
         {
             OnScaleAction?.Invoke(detector.ScaleFactor);
             return true;
