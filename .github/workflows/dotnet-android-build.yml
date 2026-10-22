@@ -1,0 +1,127 @@
+name: Reproducible .NET 10 + native Android build
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shax-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.100'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install pinned Android SDK, NDK and CMake
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmake/3.22.1/bin" >> "$GITHUB_PATH"
+      - name: Verify pinned toolchain
+        run: |
+          dotnet --info
+          java -version
+          cmake --version
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++" --version
+      - name: Build native libshax.so for Android ABIs
+        run: |
+          set -euxo pipefail
+          for ABI in arm64-v8a x86_64; do
+            cmake -S native -B "native/build/$ABI" -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" -DANDROID_ABI="$ABI" -DANDROID_PLATFORM=android-24 -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON -DCMAKE_BUILD_TYPE=Release
+            cmake --build "native/build/$ABI" --parallel 2
+            mkdir -p "src/Shax.Android/native-libs/$ABI"
+            cp "native/build/$ABI/libshax.so" "src/Shax.Android/native-libs/$ABI/libshax.so"
+          done
+      - name: Restore and test engine core
+        run: |
+          dotnet restore tests/Shax.Core.Tests/Shax.Core.Tests.csproj
+          dotnet test tests/Shax.Core.Tests/Shax.Core.Tests.csproj -c Release --no-restore
+      - name: Install .NET Android workload
+        run: dotnet workload install android
+      - name: Restore .NET Android project
+        run: dotnet restore src/Shax.Android/Shax.Android.csproj
+      - name: Publish Release APK
+        run: dotnet publish src/Shax.Android/Shax.Android.csproj -c Release -f net10.0-android --no-restore -p:AndroidPackageFormat=apk
+      - name: Verify universal APK, managed C# AOT libraries and native ABIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          mapfile -t APKS < <(find src/Shax.Android/bin/Release -type f -name '*.apk' | sort)
+          test "${#APKS[@]}" -gt 0
+          for APK in "${APKS[@]}"; do
+            CONTENTS="$(unzip -Z1 "$APK")"
+            if grep -q 'lib/arm64-v8a/libshax.so' <<< "$CONTENTS" && grep -q 'lib/x86_64/libshax.so' <<< "$CONTENTS"; then
+              cp "$APK" artifacts/Shax-Engine-net10-universal.apk
+              break
+            fi
+          done
+          test -s artifacts/Shax-Engine-net10-universal.apk
+          CONTENTS="$(unzip -Z1 artifacts/Shax-Engine-net10-universal.apk)"
+          grep -q 'lib/arm64-v8a/libshax.so' <<< "$CONTENTS"
+          grep -q 'lib/x86_64/libshax.so' <<< "$CONTENTS"
+          grep -q 'Shax.Core.dll' <<< "$CONTENTS"
+          grep -q 'Shax.Android.dll' <<< "$CONTENTS"
+          sha256sum artifacts/Shax-Engine-net10-universal.apk > artifacts/SHA256SUMS.txt
+          {
+            echo "dotnet=10.0.100"
+            echo "java=17"
+            echo "ndk=27.2.12479018"
+            echo "cmake=3.22.1"
+            echo "android-platform=35"
+            echo "abis=arm64-v8a,x86_64"
+            echo "renderer=native C++ / OpenGL ES 3.2 preferred, ES 3.0 fallback"
+          } > artifacts/build-info.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shax-engine-net10-native-apk
+          path: artifacts/*
+          if-no-files-found: error
+
+  emulator-smoke-test:
+    timeout-minutes: 15
+    needs: build-and-test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: shax-engine-net10-native-apk
+          path: artifacts
+      - uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          script: |
+            set -euxo pipefail
+            adb install artifacts/Shax-Engine-net10-universal.apk
+            adb shell monkey -p com.shax.engine.dotnet 1
+            sleep 10
+            adb shell pidof com.shax.engine.dotnet
+            adb logcat -d | grep -E 'OpenGL ES 3.2|OpenGL ES 3.0'
+            adb shell input keyevent HOME
+            sleep 3
+            adb shell am force-stop com.shax.engine.dotnet
+            adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p com.shax.engine.dotnet --ez shax.forceGles30 true
+            sleep 10
+            adb shell pidof com.shax.engine.dotnet
+            adb logcat -d | grep -E 'Native libshax.so renderer initialized|ShaxNative|AOT-safe Shax C# subset compiled and running'
+            adb logcat -d | grep -q 'OpenGL ES 3.0'
+            COUNT="$(adb logcat -d | grep -c 'Native libshax.so renderer initialized' || true)"
+            test "$COUNT" -ge 2
+            adb logcat -d | grep -q "AOT-safe Shax C# subset compiled and running"
