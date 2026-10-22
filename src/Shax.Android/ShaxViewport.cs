@@ -283,6 +283,36 @@ public sealed class ShaxViewport : GLSurfaceView
             global::Android.Util.Log.Info("ShaxEngine", $"Uploaded GLB geometry: {vertices.Count / 19} vertices, {indices.Count / 3} triangles.");
         }
 
+        private static void UploadFirstBaseColorTexture(GltfAsset asset)
+        {
+            foreach (var material in asset.Materials)
+            {
+                if ((uint)material.BaseColorTexture >= (uint)asset.Textures.Count) continue;
+                var imageIndex = asset.Textures[material.BaseColorTexture].SourceImageIndex;
+                if ((uint)imageIndex >= (uint)asset.Images.Count) continue;
+                var encoded = asset.Images[imageIndex].Bytes;
+                if (encoded.Length == 0) continue;
+                using var bitmap = global::Android.Graphics.BitmapFactory.DecodeByteArray(encoded, 0, encoded.Length);
+                if (bitmap is null) continue;
+                var width = bitmap.Width; var height = bitmap.Height;
+                if (width <= 0 || height <= 0 || (long)width * height > 16_777_216) continue;
+                var pixels = new int[width * height];
+                bitmap.GetPixels(pixels, 0, width, 0, 0, width, height);
+                var rgba = new byte[pixels.Length * 4];
+                for (var i = 0; i < pixels.Length; i++)
+                {
+                    var color = pixels[i]; var o = i * 4;
+                    rgba[o] = (byte)((color >> 16) & 255);
+                    rgba[o+1] = (byte)((color >> 8) & 255);
+                    rgba[o+2] = (byte)(color & 255);
+                    rgba[o+3] = (byte)((color >> 24) & 255);
+                }
+                if (NativeUploadBaseColorTexture(rgba, width, height) != 0)
+                    global::Android.Util.Log.Info("ShaxEngine", $"Uploaded GLB base-color texture {width}x{height}.");
+                return;
+            }
+        }
+
         private void UpdateImportedSkin(float deltaTime)
         {
             if (!_hasSkinWeights || _importedAsset is null || _importedAsset.Skins.Count == 0) return;
