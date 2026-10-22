@@ -6,13 +6,13 @@ namespace Shax;
 
 public static class SceneSerializer
 {
-    private sealed class SceneDto
+    public sealed class SceneDto
     {
         public int FormatVersion { get; set; } = 1;
         public string Name { get; set; } = "Scene";
         public List<EntityDto> Entities { get; set; } = new();
     }
-    private sealed class EntityDto
+    public sealed class EntityDto
     {
         public Guid Id { get; set; }
         public string Name { get; set; } = "Entity";
