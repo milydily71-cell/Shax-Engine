@@ -30,7 +30,7 @@ public sealed class ShaxViewport : GLSurfaceView
         SetEGLContextFactory(new Es32OrEs30ContextFactory());
         SetRenderer(_renderer);
         RenderMode = Rendermode.Continuously;
-        PreserveEGLContextOnPause = true;
+        PreserveEGLContextOnPause = false;
         KeepScreenOn = true;
     }
 
