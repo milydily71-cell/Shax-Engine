@@ -88,7 +88,7 @@ public sealed class MainActivity : Activity
     {
         try
         {
-            using var stream = OpenFileInput("PlayerScript.cs");
+            using var stream = OpenFileInput("PlayerScript.cs") ?? throw new System.IO.IOException("Could not open saved script.");
             using var reader = new System.IO.StreamReader(stream);
             if (_scriptEditor != null) _scriptEditor.Text = reader.ReadToEnd();
             if (_status != null) _status.Text = "Loaded PlayerScript.cs from app-private storage";
@@ -112,7 +112,7 @@ public sealed class MainActivity : Activity
         }
         try
         {
-            using var stream = OpenFileOutput("PlayerScript.cs", FileCreationMode.Private);
+            using var stream = OpenFileOutput("PlayerScript.cs", FileCreationMode.Private) ?? throw new System.IO.IOException("Could not open script file for writing.");
             using var writer = new System.IO.StreamWriter(stream);
             writer.Write(_scriptEditor.Text ?? string.Empty);
             if (_status != null) _status.Text = "Saved PlayerScript.cs to app-private storage";
