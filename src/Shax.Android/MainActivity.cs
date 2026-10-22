@@ -17,7 +17,10 @@ namespace Shax.Android;
                            global::Android.Content.PM.ConfigChanges.KeyboardHidden)]
 public sealed class MainActivity : Activity
 {
-    private readonly Scene _scene = Engine.CreateScene("Main Scene");
+    private Scene _scene = Engine.CreateScene("Main Scene");
+    private readonly SceneManager _sceneManager = new();
+    private readonly Dictionary<string, string> _scenePaths = new(StringComparer.OrdinalIgnoreCase);
+    private string _sceneFileName = "MainScene.shax.json";
     private Entity? _cubeEntity;
     private LinearLayout? _root;
     private FrameLayout? _workspace;
@@ -51,6 +54,8 @@ public sealed class MainActivity : Activity
         base.OnCreate(savedInstanceState);
         Window?.SetFlags(WindowManagerFlags.KeepScreenOn, WindowManagerFlags.KeepScreenOn);
         _forceGles30 = Intent?.GetBooleanExtra("shax.forceGles30", false) ?? false;
+        _sceneManager.Register(_scene, makeActive: true);
+        _scenePaths[_scene.Name] = _sceneFileName;
         _cubeEntity = _scene.CreateEntity("Cube");
         _cubeEntity.Transform.LocalPosition = new Vector3(0f, 0.5f, 0f);
         try { var loaded = PbrMaterialStore.Load(Path.Combine(FilesDir!.AbsolutePath, "PbrMaterial.shax.json")); CopyMaterial(loaded); } catch (Exception ex) { global::Android.Util.Log.Warn("ShaxEngine", "Using default material settings: " + ex.Message); }
@@ -70,6 +75,8 @@ public sealed class MainActivity : Activity
         toolbar.SetPadding(5, 3, 5, 3);
         toolbar.AddView(Label("SHAX", 15, true), new LinearLayout.LayoutParams(-2, -1));
         AddAction(toolbar, "Scene", () => ShowPanel("scene"));
+        AddAction(toolbar, "Scenes", ShowScenesDialog);
+        AddAction(toolbar, "Camera", ShowCameraModes);
         AddAction(toolbar, "Script IDE", () => ShowPanel("script"));
         AddAction(toolbar, "Assets", () => ShowPanel("assets"));
         AddAction(toolbar, "Material", () => ShowPanel("material"));
@@ -235,6 +242,105 @@ public sealed class MainActivity : Activity
         });
     }
 
+
+    private void ShowScenesDialog()
+    {
+        try
+        {
+            var directory = Path.Combine(FilesDir!.AbsolutePath, "Scenes");
+            Directory.CreateDirectory(directory);
+            foreach (var path in Directory.GetFiles(directory, "*.shax.json"))
+            {
+                var file = Path.GetFileName(path);
+                var name = file.EndsWith(".shax.json", StringComparison.OrdinalIgnoreCase) ? file[..^10] : Path.GetFileNameWithoutExtension(file);
+                var relative = Path.Combine("Scenes", file);
+                if (!_scenePaths.ContainsKey(name)) _scenePaths[name] = relative;
+                if (!_sceneManager.TryGet(name, out _))
+                {
+                    try { _sceneManager.Register(SceneSerializer.Deserialize(File.ReadAllText(path))); }
+                    catch (Exception ex) { global::Android.Util.Log.Warn("ShaxEngine", $"Skipping invalid scene {file}: {ex.Message}"); }
+                }
+            }
+            var names = _sceneManager.Scenes.Select(s => s.Name).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToArray();
+            new AlertDialog.Builder(this).SetTitle("Scene manager")
+                .SetItems(names, (_, e) => SwitchScene(names[e.Which]))
+                .SetNeutralButton("New Scene", (_, _) => CreateSceneDialog())
+                .SetNegativeButton("Cancel", (_, _) => { }).Show();
+        }
+        catch (Exception ex) { SetStatus("Scene manager failed: " + ex.Message); }
+    }
+
+    private void CreateSceneDialog()
+    {
+        var input = new EditText(this) { Hint = "Scene name" };
+        new AlertDialog.Builder(this).SetTitle("Create scene").SetView(input)
+            .SetPositiveButton("Create", (_, _) =>
+            {
+                var name = (input.Text ?? string.Empty).Trim();
+                if (name.Length == 0) { SetStatus("Scene name cannot be empty."); return; }
+                if (_sceneManager.TryGet(name, out _)) { SetStatus("A scene with that name already exists."); return; }
+                SaveScene();
+                var safeName = Regex.Replace(name, @"[^A-Za-z0-9_-]+", "_");
+                var relative = Path.Combine("Scenes", safeName + ".shax.json");
+                var scene = _sceneManager.Create(name);
+                _scenePaths[name] = relative;
+                scene.CreateEntity("Cube").Transform.LocalPosition = new Vector3(0, 0.5f, 0);
+                ActivateScene(scene, relative);
+                SaveScene();
+            })
+            .SetNegativeButton("Cancel", (_, _) => { }).Show();
+    }
+
+    private void SwitchScene(string name)
+    {
+        try
+        {
+            SaveScene();
+            if (!_sceneManager.TryGet(name, out var scene) || scene is null)
+            {
+                if (!_scenePaths.TryGetValue(name, out var relative)) throw new FileNotFoundException("Scene file not found.");
+                var absolute = Path.Combine(FilesDir!.AbsolutePath, relative);
+                if (!File.Exists(absolute)) throw new FileNotFoundException("Scene file not found.", absolute);
+                scene = SceneSerializer.Deserialize(File.ReadAllText(absolute));
+                _sceneManager.Register(scene);
+                _scenePaths[name] = relative;
+            }
+            _sceneManager.SetActive(name);
+            var scenePath = _scenePaths.TryGetValue(name, out var known) ? known : Path.Combine("Scenes", Regex.Replace(name, @"[^A-Za-z0-9_-]+", "_") + ".shax.json");
+            ActivateScene(scene, scenePath);
+        }
+        catch (Exception ex) { SetStatus("Scene switch failed: " + ex.Message); }
+    }
+
+    private void ActivateScene(Scene scene, string relativePath)
+    {
+        _viewport?.OnPause();
+        if (_viewport != null) _workspace?.RemoveView(_viewport);
+        _scene = scene;
+        _sceneFileName = relativePath;
+        _cubeEntity = _scene.Entities.FirstOrDefault(e => e.Name == "Cube") ?? _scene.CreateEntity("Cube");
+        _runtimeScript = null;
+        _viewport = new ShaxViewport(this, _scene, _cubeEntity, _forceGles30);
+        _viewport.SetMaterial(_materialSettings.Roughness, _materialSettings.Metallic);
+        _workspace?.AddView(_viewport, new FrameLayout.LayoutParams(-1, -1));
+        _viewport.OnResume();
+        RefreshInspector();
+        ShowPanel("scene");
+        SetStatus("Active scene: " + _scene.Name + " • saved independently to " + _sceneFileName);
+    }
+
+    private void ShowCameraModes()
+    {
+        var modes = new[] { "Orbit editor camera", "First-person camera (FPS)", "Third-person camera (TPS)" };
+        new AlertDialog.Builder(this).SetTitle("Viewport camera")
+            .SetItems(modes, (_, e) =>
+            {
+                var mode = e.Which switch { 1 => CameraMode.FirstPerson, 2 => CameraMode.ThirdPerson, _ => CameraMode.Orbit };
+                _viewport?.SetCameraMode(mode);
+                SetStatus("Viewport camera mode: " + mode);
+            })
+            .SetNegativeButton("Cancel", (_, _) => { }).Show();
+    }
 
     private void PickGlbAsset()
     {
@@ -511,7 +617,7 @@ public sealed class MainActivity : Activity
     {
         try
         {
-            WritePrivateFileAtomically("MainScene.shax.json", SceneSerializer.Serialize(_scene));
+            WritePrivateFileAtomically(_sceneFileName, SceneSerializer.Serialize(_scene));
             SetStatus("Saved scene JSON atomically with stable entity IDs.");
         }
         catch (Exception ex) { SetStatus("Scene save failed: " + ex.Message); }
