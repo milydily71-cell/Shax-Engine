@@ -102,7 +102,7 @@ void main(){ fragColor=vec4(vColor,1.0); })";
 constexpr const char* pbrVs = R"(#version 300 es
 layout(location=0) in vec3 aPosition; layout(location=1) in vec3 aNormal; layout(location=2) in vec3 aAlbedo;
 uniform mat4 uMvp; uniform mat4 uModel; out vec3 vWorld; out vec3 vNormal; out vec3 vAlbedo;
-void main(){vec4 w=uModel*vec4(aPosition,1.0);vWorld=w.xyz;vNormal=normalize(mat3(uModel)*aNormal);vAlbedo=aAlbedo;gl_Position=uMvp*vec4(aPosition,1.0);})";
+void main(){vec4 w=uModel*vec4(aPosition,1.0);vWorld=w.xyz;vNormal=normalize(transpose(inverse(mat3(uModel)))*aNormal);vAlbedo=aAlbedo;gl_Position=uMvp*vec4(aPosition,1.0);})";
 constexpr const char* pbrFs = R"(#version 300 es
 precision highp float; in vec3 vWorld; in vec3 vNormal; in vec3 vAlbedo; out vec4 fragColor;
 uniform samplerCube uEnvironment; uniform vec3 uCamera; uniform vec3 uLightDirection; uniform float uRoughness; uniform float uMetallic;
@@ -153,7 +153,7 @@ void main(){
  float cloudHeight=0.14;
  float cloudBand=smoothstep(-0.04,0.05,ray.y)* (1.0-smoothstep(0.34,0.48,ray.y));
  vec2 cloudUv=ray.xz/max(ray.y+0.22,0.16);
- cloudUv=cloudUv*1.65+vec2(uTime*0.006,-uTime*0.003);
+ cloudUv=cloudUv*1.65;
  float transmittance=1.0;
  vec3 cloudRadiance=vec3(0.0);
  float silverLining=pow(max(dot(ray,sunDirection),0.0),5.0)*0.18;
