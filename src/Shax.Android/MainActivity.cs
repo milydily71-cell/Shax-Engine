@@ -258,9 +258,13 @@ public sealed class MainActivity : Activity
                 input.CopyTo(output);
             }
             var imported = GlbAssetImporter.Import(staging, Path.Combine(FilesDir!.AbsolutePath, "Assets"));
+            var decoded = GltfAssetDecoder.DecodeFile(staging);
+            var vertices = decoded.Meshes.SelectMany(m => m.Primitives).Sum(p => p.VertexCount);
+            var triangles = decoded.Meshes.SelectMany(m => m.Primitives).Sum(p => p.TriangleCount);
+            var jointCount = decoded.Skins.Sum(s => s.Joints.Length);
             if (_assetPanel != null)
-                _assetPanel.Text = $"ASSET BROWSER\n\nImported: {Path.GetFileName(imported.AssetPath)}\nSize: {imported.FileSize:N0} bytes\\nMeshes: {imported.MeshCount}\nMaterials: {imported.MaterialCount}\nTextures: {imported.TextureCount}\nImages: {imported.ImageCount}\nNodes: {imported.NodeCount}\nAnimations: {imported.AnimationCount}\n\nGLB 2.0 container validated and copied into app-private Assets/. Mesh decoding/GPU upload is not yet connected.";
-            SetStatus($"GLB metadata validated: {imported.MeshCount} mesh records, {imported.MaterialCount} materials. Geometry upload is not implemented yet.");
+                _assetPanel.Text = $"ASSET BROWSER\n\nImported: {Path.GetFileName(imported.AssetPath)}\nSize: {imported.FileSize:N0} bytes\nMeshes: {decoded.Meshes.Count}\nVertices: {vertices:N0}\nTriangles: {triangles:N0}\nMaterials: {decoded.Materials.Count}\nTextures: {imported.TextureCount}\nEmbedded images: {decoded.Images.Count}\nNodes: {decoded.Nodes.Count}\nSkins/joints: {decoded.Skins.Count}/{jointCount}\nAnimation clips: {decoded.Animations.Count}\n\nGLB geometry, index buffers, materials, embedded images, skin joints and animation tracks decoded into CPU asset data. Native GPU upload/render binding remains a separate step.";
+            SetStatus($"GLB decoded: {vertices:N0} vertices, {triangles:N0} triangles, {jointCount} joints, {decoded.Animations.Count} animation clips. CPU asset decoding complete.");
         }
         catch (Exception ex)
         {
