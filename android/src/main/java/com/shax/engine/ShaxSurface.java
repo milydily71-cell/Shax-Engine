@@ -16,17 +16,22 @@ final class ShaxSurface extends GLSurfaceView {
 
     ShaxSurface(Context context) {
         super(context);
-        // Ask GLSurfaceView for an ES 3-capable EGL config, then prefer ES 3.1 and fall back to 3.0.
         setEGLContextClientVersion(3);
         setEGLContextFactory(new EGLContextFactory() {
             private final int EGL_CONTEXT_MAJOR_VERSION_KHR = 0x3098;
             private final int EGL_CONTEXT_MINOR_VERSION_KHR = 0x30FB;
+            private EGLContext tryContext(EGL10 egl, EGLDisplay display, EGLConfig config, int minor) {
+                int[] attrs = minor == 0
+                    ? new int[]{EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL10.EGL_NONE}
+                    : new int[]{EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL_CONTEXT_MINOR_VERSION_KHR, minor, EGL10.EGL_NONE};
+                return egl.eglCreateContext(display, config, EGL10.EGL_NO_CONTEXT, attrs);
+            }
             @Override public EGLContext createContext(EGL10 egl, EGLDisplay display, EGLConfig config) {
-                int[] es31 = {EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL_CONTEXT_MINOR_VERSION_KHR, 1, EGL10.EGL_NONE};
-                EGLContext context = egl.eglCreateContext(display, config, EGL10.EGL_NO_CONTEXT, es31);
+                EGLContext context = tryContext(egl, display, config, 2);
                 if (context != null && context != EGL10.EGL_NO_CONTEXT) return context;
-                int[] es30 = {EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL10.EGL_NONE};
-                context = egl.eglCreateContext(display, config, EGL10.EGL_NO_CONTEXT, es30);
+                context = tryContext(egl, display, config, 1);
+                if (context != null && context != EGL10.EGL_NO_CONTEXT) return context;
+                context = tryContext(egl, display, config, 0);
                 if (context == null || context == EGL10.EGL_NO_CONTEXT) {
                     throw new RuntimeException("Shax requires OpenGL ES 3.0 or newer.");
                 }
