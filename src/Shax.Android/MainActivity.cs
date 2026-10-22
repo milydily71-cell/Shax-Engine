@@ -171,12 +171,12 @@ public sealed class MainActivity : Activity
         _materialPanel.SetBackgroundColor(global::Android.Graphics.Color.Rgb(24, 30, 40));
         _materialPanel.AddView(Label("PBR MATERIAL INSPECTOR", 15, true));
         _materialPanel.AddView(Label("Metallic-roughness Cook-Torrance BRDF with procedural environment-cubemap IBL", 12, false));
-        _roughnessValue = Label("Roughness: 0.28", 13, false);
+        _roughnessValue = Label($"Roughness: {_materialSettings.Roughness:0.00}", 13, false);
         _materialPanel.AddView(_roughnessValue);
         _roughnessSeek = new SeekBar(this) { Max = 96, Progress = Math.Clamp((int)MathF.Round(_materialSettings.Roughness * 96f), 4, 96) };
         _roughnessSeek.ProgressChanged += (_, e) => { if (e.FromUser) { var value = Math.Clamp(e.Progress / 96f, 0.04f, 1f); _materialSettings.Roughness = value; if (_roughnessValue != null) _roughnessValue.Text = $"Roughness: {value:0.00}"; _viewport?.SetMaterial(value, _materialSettings.Metallic); } };
         _materialPanel.AddView(_roughnessSeek);
-        _metallicValue = Label("Metallic: 0.08", 13, false);
+        _metallicValue = Label($"Metallic: {_materialSettings.Metallic:0.00}", 13, false);
         _materialPanel.AddView(_metallicValue);
         _metallicSeek = new SeekBar(this) { Max = 100, Progress = Math.Clamp((int)MathF.Round(_materialSettings.Metallic * 100f), 0, 100) };
         _metallicSeek.ProgressChanged += (_, e) => { if (e.FromUser) { var value = e.Progress / 100f; _materialSettings.Metallic = value; if (_metallicValue != null) _metallicValue.Text = $"Metallic: {value:0.00}"; _viewport?.SetMaterial(_materialSettings.Roughness, value); } };
@@ -237,7 +237,7 @@ public sealed class MainActivity : Activity
     {
         var intent = new Intent(Intent.ActionOpenDocument);
         intent.AddCategory(Intent.CategoryOpenable);
-        intent.SetType("model/gltf-binary");
+        intent.SetType("*/*");
         StartActivityForResult(Intent.CreateChooser(intent, "Import GLB model"), RequestImportGlb);
     }
 
