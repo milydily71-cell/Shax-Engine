@@ -37,8 +37,8 @@ public sealed class MainActivity : Activity
     private EditText? _positionX, _positionY, _positionZ;
     private EditText? _rotationX, _rotationY, _rotationZ;
     private EditText? _scaleX, _scaleY, _scaleZ;
-    private readonly Stack<Vector3> _undo = new();
-    private readonly Stack<Vector3> _redo = new();
+    private readonly Stack<TransformSnapshot> _undo = new();
+    private readonly Stack<TransformSnapshot> _redo = new();
     private bool _highlighting;
     private RuntimeScriptBehaviour? _runtimeScript;
     private bool _forceGles30;
@@ -113,7 +113,7 @@ public sealed class MainActivity : Activity
         _diagnostics = Label("Diagnostics: waiting for edits", 11, false);
         _diagnostics.SetPadding(10, 6, 10, 6);
         _scriptPanel.AddView(_diagnostics, new LinearLayout.LayoutParams(-1, -2));
-        _scriptEditor.TextChanged += (_, _) => { ApplySyntaxHighlighting(); UpdateDiagnostics(); };
+        _scriptEditor.TextChanged += (_, _) => { ApplySyntaxHighlighting(); UpdateDiagnostics(); if (!_highlighting) SaveScript(showStatus: false); };
         _workspace.AddView(_scriptPanel, new FrameLayout.LayoutParams(-1, -1));
         _scriptPanel.Visibility = ViewStates.Gone;
 
@@ -291,26 +291,38 @@ public sealed class MainActivity : Activity
         {
             SetStatus("Transform error: enter valid numeric position, rotation and scale values."); return;
         }
-        _undo.Push(_cubeEntity.Transform.LocalPosition); _redo.Clear();
+        _undo.Push(CaptureTransform(_cubeEntity)); _redo.Clear();
         _cubeEntity.Transform.LocalPosition = new Vector3(x, y, z);
         const float radians = MathF.PI / 180f;
         _cubeEntity.Transform.LocalRotation = Quaternion.Normalize(Quaternion.CreateFromYawPitchRoll(ry * radians, rx * radians, rz * radians));
         _cubeEntity.Transform.LocalScale = new Vector3(sx, sy, sz);
-        SetStatus("Position, rotation and scale applied to the live native viewport.");
+        SaveScene();
+        SetStatus("Position, rotation and scale applied to the live native viewport and autosaved.");
     }
+
+    private readonly struct TransformSnapshot
+    {
+        public readonly Vector3 Position;
+        public readonly Quaternion Rotation;
+        public readonly Vector3 Scale;
+        public TransformSnapshot(Entity entity) { Position = entity.Transform.LocalPosition; Rotation = entity.Transform.LocalRotation; Scale = entity.Transform.LocalScale; }
+        public void Apply(Entity entity) { entity.Transform.LocalPosition = Position; entity.Transform.LocalRotation = Rotation; entity.Transform.LocalScale = Scale; }
+    }
+
+    private static TransformSnapshot CaptureTransform(Entity entity) => new(entity);
 
     private void UndoTransform()
     {
         if (_cubeEntity is null || _undo.Count == 0) { SetStatus("Nothing to undo."); return; }
-        _redo.Push(_cubeEntity.Transform.LocalPosition);
-        _cubeEntity.Transform.LocalPosition = _undo.Pop(); RefreshInspector();
+        _redo.Push(CaptureTransform(_cubeEntity));
+        _undo.Pop().Apply(_cubeEntity); RefreshInspector(); SaveScene();
     }
 
     private void RedoTransform()
     {
         if (_cubeEntity is null || _redo.Count == 0) { SetStatus("Nothing to redo."); return; }
-        _undo.Push(_cubeEntity.Transform.LocalPosition);
-        _cubeEntity.Transform.LocalPosition = _redo.Pop(); RefreshInspector();
+        _undo.Push(CaptureTransform(_cubeEntity));
+        _redo.Pop().Apply(_cubeEntity); RefreshInspector(); SaveScene();
     }
 
     private void StopScript()
@@ -462,13 +474,13 @@ public sealed class MainActivity : Activity
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
-    private void SaveScript()
+    private void SaveScript(bool showStatus = true)
     {
         try
         {
             if (_scriptEditor == null) return;
             WritePrivateFileAtomically(Path.Combine("Scripts", _currentScriptName), _scriptEditor.Text?.ToString() ?? string.Empty);
-            SetStatus("Saved " + _currentScriptName + " atomically to app-private project storage.");
+            if (showStatus) SetStatus("Saved " + _currentScriptName + " atomically to app-private project storage.");
         }
         catch (Exception ex) { SetStatus("Script save failed: " + ex.Message); }
     }
