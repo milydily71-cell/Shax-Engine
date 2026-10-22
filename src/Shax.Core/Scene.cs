@@ -63,6 +63,7 @@ public class Scene
                 {
                     behaviour.Awake(); behaviour.OnEnable(); behaviour.Start();
                 }
+                Physics.Bind(this);
                 behaviour.Update(deltaTime); behaviour.LateUpdate(deltaTime);
             }
         }
