@@ -5,7 +5,7 @@ Shax is a mobile-first 3D engine/editor prototype built around a C# engine API, 
 ## Architecture
 
 - `src/Shax.Core`: engine-neutral C# API, scene/entity lifecycle, transform hierarchy/world matrices, camera/light/material/mesh-renderer contracts, stable entity IDs and JSON scene serialization.
-- `src/Shax.Android`: .NET 10 Android editor and live viewport. It calls the native renderer through P/Invoke and includes Scene, Script IDE, Assets, Console, transform inspector, basic diagnostics, scene/script persistence and position undo/redo.
+- `src/Shax.Android`: .NET 10 Android editor and live viewport. It calls the native renderer through P/Invoke and includes Scene, multi-file Script IDE, GLB container import/metadata, Console, position/rotation/scale inspector, PBR material controls, atomic scene/script/material persistence, autosave and full-transform undo/redo.
 - `native/`: C++20 renderer exported as `libshax.so`, built with Android NDK/CMake for arm64-v8a and x86_64.
 - `tests/Shax.Core.Tests`: automated tests for transform hierarchy, scene serialization and behaviour ticks.
 
@@ -13,7 +13,7 @@ Shax is a mobile-first 3D engine/editor prototype built around a C# engine API, 
 
 The Android host requests **OpenGL ES 3.2 first, then falls directly back to ES 3.0**. There is no ES 3.1 fallback target. The current native renderer uses GLES 3.0-compatible APIs so the same baseline path works on both; ES 3.2-only features are a future capability-gated milestone.
 
-The C++ viewport draws a zenith sky gradient, grid, colored X/Y/Z axes and a cube driven by the C# scene transform. One-finger drag orbits the camera and pinch gestures zoom.
+The C++ viewport draws a zenith sky gradient with bounded volumetric-cloud raymarching, grid and colored axes, plus a C#-transform-driven cube shaded by Cook-Torrance metallic-roughness PBR and a procedural environment-cubemap IBL. Material roughness/metallic and orbit-camera position are passed from the .NET host. One-finger drag orbits the camera and pinch gestures zoom. See [rendering notes](docs/RENDERING.md) for the exact scope and limitations.
 
 ## Reproducible build and artifact
 
@@ -29,4 +29,4 @@ Install .NET SDK 10.0.100, Java 17, Android SDK platform/build tools 35, NDK 27.
 
 The Script IDE provides a source buffer, basic syntax coloring, delimiter diagnostics and Play-time interpretation of a deliberately restricted C# behaviour subset. The subset currently supports rotation and local position/scale assignments; it rejects filesystem/network/reflection/process APIs and unsupported statements. It is **not** a general C# compiler and does not load generated assemblies or IL, so expanding it requires additional sandbox and regression tests.
 
-Automated CI can verify an emulator run but cannot certify physical hardware. ES 3.2/3.0 device-specific rendering, pause/resume and EGL context-loss behavior still require hands-on device tests. PBR, image-based lighting, shadows, glTF/GLB import, animation, full asset pipeline, robust sandboxing and GPU profiling remain planned.
+Automated CI can verify an emulator run but cannot certify physical hardware. ES 3.2/3.0 device-specific rendering, pause/resume and EGL context-loss behavior still require hands-on device tests. True shadow maps, HDR environment import/convolved IBL, full glTF mesh/texture GPU upload, skeletal animation, multi-scene workflows, GPU timer-query profiling, and physical-device verification remain planned. The current renderer is rasterized PBR; GLES 3.2 has no standard hardware ray-tracing pipeline, so ray tracing would require a separate Vulkan backend and device-extension checks.
