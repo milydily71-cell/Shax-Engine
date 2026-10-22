@@ -20,6 +20,7 @@ GLint sceneMvp = -1, pbrMvp = -1, pbrModel = -1, pbrEnvironment = -1, pbrCamera 
 GLint skyTime = -1, skyInverseViewProjection = -1, skyCamera = -1;
 float cameraX = 0.0f, cameraY = 1.6f, cameraZ = 4.0f, materialRoughness = 0.28f, materialMetallic = 0.08f;
 GLsizei gridCount = 0, cubeCount = 0;
+bool demoCubeVisible = false; // Start in an empty baseplate/grid world; imported assets remain visible.
 std::vector<float> sceneVertices, cubeVertices;
 
 using GenQueriesExt = void (*)(GLsizei, GLuint*);
@@ -371,8 +372,18 @@ extern "C" __attribute__((visibility("default"))) void shax_draw(const float* vi
     glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,6*sizeof(float),nullptr);
     glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,6*sizeof(float),reinterpret_cast<void*>(3*sizeof(float)));
     glUniformMatrix4fv(sceneMvp,1,GL_FALSE,viewProjection);
+    // Recenter the finite line mesh around the camera to create an effectively infinite editor grid.
+    // The grid vertices are restored from the immutable CPU copy every frame before applying the offset.
+    if (gridCount > 0) {
+        const size_t gridFloats = static_cast<size_t>(gridCount) * 6u;
+        std::vector<float> shifted(sceneVertices.begin(), sceneVertices.begin() + static_cast<std::ptrdiff_t>(gridFloats));
+        const float originX = std::floor(cameraX / 10.0f + 0.5f) * 10.0f;
+        const float originZ = std::floor(cameraZ / 10.0f + 0.5f) * 10.0f;
+        for (size_t i = 0; i + 5 < shifted.size(); i += 6) { shifted[i] += originX; shifted[i+2] += originZ; }
+        glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(shifted.size() * sizeof(float)), shifted.data());
+    }
     glDrawArrays(GL_LINES,0,gridCount);
-    if (importedIndexCount == 0) {
+    if (demoCubeVisible && importedIndexCount == 0) {
     float model[16]; modelMatrix(model,cubeModel);
     float mvp[16]{};
     for(int col=0;col<4;col++) for(int row=0;row<4;row++)
