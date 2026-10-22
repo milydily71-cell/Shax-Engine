@@ -100,7 +100,7 @@ public sealed class ShaxViewport : GLSurfaceView
         [DllImport("shax", EntryPoint = "shax_set_material")]
         private static extern void NativeSetMaterial(float roughness, float metallic);
         [DllImport("shax", EntryPoint = "shax_draw")]
-        private static extern void NativeDraw([In] float[] viewProjection, [In] float[] cubeModel, float timeSeconds);
+        private static extern void NativeDraw([In] float[] viewProjection, [In] float[] inverseViewProjection, [In] float[] cubeModel, float timeSeconds);
         [DllImport("shax", EntryPoint = "shax_shutdown")]
         private static extern void NativeShutdown();
 
@@ -110,6 +110,7 @@ public sealed class ShaxViewport : GLSurfaceView
         private readonly float[] _projection = new float[16];
         private readonly float[] _view = new float[16];
         private readonly float[] _viewProjection = new float[16];
+        private readonly float[] _inverseViewProjection = new float[16];
         private readonly float[] _cubeModel = new float[16];
         private int _width = 1, _height = 1;
         private float _yaw = 0.65f, _pitch = 0.35f, _distance = 7.5f;
@@ -160,6 +161,8 @@ public sealed class ShaxViewport : GLSurfaceView
             var eyeZ = targetZ + _distance * cp * MathF.Cos(_yaw);
             GLMatrix.SetLookAtM(_view, 0, eyeX, eyeY, eyeZ, targetX, targetY, targetZ, 0f, 1f, 0f);
             GLMatrix.MultiplyMM(_viewProjection, 0, _projection, 0, _view, 0);
+            if (!GLMatrix.InvertM(_inverseViewProjection, 0, _viewProjection, 0))
+                Array.Copy(_viewProjection, _inverseViewProjection, _viewProjection.Length);
             var world = _cubeEntity.Transform.WorldMatrix;
             _cubeModel[0]=world.M11; _cubeModel[1]=world.M12; _cubeModel[2]=world.M13; _cubeModel[3]=world.M14;
             _cubeModel[4]=world.M21; _cubeModel[5]=world.M22; _cubeModel[6]=world.M23; _cubeModel[7]=world.M24;
@@ -168,7 +171,7 @@ public sealed class ShaxViewport : GLSurfaceView
             var time = (Java.Lang.JavaSystem.CurrentTimeMillis() - _startMilliseconds) / 1000f;
             NativeSetCamera(eyeX, eyeY, eyeZ);
             NativeSetMaterial(_roughness, _metallic);
-            NativeDraw(_viewProjection, _cubeModel, time);
+            NativeDraw(_viewProjection, _inverseViewProjection, _cubeModel, time);
         }
 
         public void SetMaterial(float roughness, float metallic)
