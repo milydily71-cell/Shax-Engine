@@ -158,12 +158,8 @@ final class ShaxRenderer implements GLSurfaceView.Renderer {
         a.add(x);a.add(y);a.add(z);a.add(r);a.add(g);a.add(b); a.add(X);a.add(Y);a.add(Z);a.add(r);a.add(g);a.add(b);
     }
 
-    private static final String SKY_VS="#version 300 es
-layout(location=0) in vec2 aPosition; out vec2 vUv; void main(){vUv=aPosition*0.5+0.5;gl_Position=vec4(aPosition,1.0,1.0);}";
-    private static final String SKY_FS="#version 300 es
-precision mediump float; in vec2 vUv; out vec4 fragColor; uniform vec3 uZenithColor; uniform vec3 uHorizonColor; uniform float uHorizonPower; void main(){float t=pow(clamp(vUv.y,0.0,1.0),max(uHorizonPower,0.05));fragColor=vec4(mix(uHorizonColor,uZenithColor,t),1.0);}";
-    private static final String SOLID_VS="#version 300 es
-layout(location=0) in vec3 aPosition; layout(location=1) in vec3 aColor; uniform mat4 uMVP; out vec3 vColor; void main(){vColor=aColor;gl_Position=uMVP*vec4(aPosition,1.0);}";
-    private static final String SOLID_FS="#version 300 es
-precision mediump float; in vec3 vColor; out vec4 fragColor; void main(){fragColor=vec4(vColor,1.0);}";
+    private static final String SKY_VS="#version 300 es\nlayout(location=0) in vec2 aPosition; out vec2 vUv; void main(){vUv=aPosition*0.5+0.5;gl_Position=vec4(aPosition,1.0,1.0);}";
+    private static final String SKY_FS="#version 300 es\nprecision mediump float; in vec2 vUv; out vec4 fragColor; uniform vec3 uZenithColor; uniform vec3 uHorizonColor; uniform float uHorizonPower; void main(){float t=pow(clamp(vUv.y,0.0,1.0),max(uHorizonPower,0.05));fragColor=vec4(mix(uHorizonColor,uZenithColor,t),1.0);}";
+    private static final String SOLID_VS="#version 300 es\nlayout(location=0) in vec3 aPosition; layout(location=1) in vec3 aColor; uniform mat4 uMVP; out vec3 vColor; void main(){vColor=aColor;gl_Position=uMVP*vec4(aPosition,1.0);}";
+    private static final String SOLID_FS="#version 300 es\nprecision mediump float; in vec3 vColor; out vec4 fragColor; void main(){fragColor=vec4(vColor,1.0);}";
 }
