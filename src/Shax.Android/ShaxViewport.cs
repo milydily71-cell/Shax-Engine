@@ -38,6 +38,8 @@ public sealed class ShaxViewport : GLSurfaceView
 
     public void SetMaterial(float roughness, float metallic) => QueueEvent(() => _renderer.SetMaterial(roughness, metallic));
     public void SetCameraMode(CameraMode mode) => QueueEvent(() => _renderer.SetCameraMode(mode));
+    public void SetImportedAsset(GltfAsset asset) => QueueEvent(() => _renderer.SetImportedAsset(asset));
+    public void ClearImportedAsset() => QueueEvent(_renderer.ClearImportedAsset);
 
     public override bool OnTouchEvent(MotionEvent? e)
     {
@@ -104,6 +106,14 @@ public sealed class ShaxViewport : GLSurfaceView
         private static extern void NativeDraw([In] float[] viewProjection, [In] float[] inverseViewProjection, [In] float[] cubeModel, float timeSeconds);
         [DllImport("shax", EntryPoint = "shax_shutdown")]
         private static extern void NativeShutdown();
+        [DllImport("shax", EntryPoint = "shax_upload_mesh")]
+        private static extern int NativeUploadMesh([In] float[] vertices, int vertexCount, [In] uint[] indices, int indexCount);
+        [DllImport("shax", EntryPoint = "shax_set_skin_matrices")]
+        private static extern void NativeSetSkinMatrices([In] float[] matrices, int jointCount);
+        [DllImport("shax", EntryPoint = "shax_clear_imported_mesh")]
+        private static extern void NativeClearImportedMesh();
+        [DllImport("shax", EntryPoint = "shax_draw_imported")]
+        private static extern void NativeDrawImported([In] float[] viewProjection, [In] float[] model, float roughness, float metallic);
 
         private readonly Entity _cubeEntity;
         private readonly Scene _scene;
@@ -120,6 +130,9 @@ public sealed class ShaxViewport : GLSurfaceView
         private readonly FpsCounter _fps = new();
         private long _startMilliseconds, _lastFrameMilliseconds;
         private int _frameCount;
+        private GltfAsset? _importedAsset;
+        private float _animationTime;
+        private bool _hasSkinWeights;
 
         public ViewportRenderer(Scene scene, Entity cubeEntity, bool forceGles30) { _scene = scene; _cubeEntity = cubeEntity; _forceGles30 = forceGles30; }
 
@@ -139,6 +152,7 @@ public sealed class ShaxViewport : GLSurfaceView
                 _startMilliseconds = Java.Lang.JavaSystem.CurrentTimeMillis();
                 _lastFrameMilliseconds = _startMilliseconds;
                 NativeResize(_width, _height);
+                if (_importedAsset != null) UploadImportedAsset(_importedAsset);
             }
             catch (DllNotFoundException ex)
             {
