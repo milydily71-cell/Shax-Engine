@@ -10,7 +10,8 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "ShaxNative", __VA_ARGS__)
 namespace {
 GLuint sceneProgram = 0, pbrProgram = 0, skyProgram = 0, sceneVbo = 0, cubeVbo = 0, environmentCube = 0;
-GLint sceneMvp = -1, pbrMvp = -1, pbrModel = -1, pbrEnvironment = -1, pbrCamera = -1, pbrLight = -1;
+GLint sceneMvp = -1, pbrMvp = -1, pbrModel = -1, pbrEnvironment = -1, pbrCamera = -1, pbrLight = -1, pbrRoughness = -1, pbrMetallic = -1;
+float cameraX = 0.0f, cameraY = 1.6f, cameraZ = 4.0f, materialRoughness = 0.28f, materialMetallic = 0.08f;
 GLint skyTime = -1;
 GLsizei gridCount = 0, cubeCount = 0;
 std::vector<float> sceneVertices, cubeVertices;
@@ -103,13 +104,13 @@ uniform mat4 uMvp; uniform mat4 uModel; out vec3 vWorld; out vec3 vNormal; out v
 void main(){vec4 w=uModel*vec4(aPosition,1.0);vWorld=w.xyz;vNormal=normalize(mat3(uModel)*aNormal);vAlbedo=aAlbedo;gl_Position=uMvp*vec4(aPosition,1.0);})";
 constexpr const char* pbrFs = R"(#version 300 es
 precision highp float; in vec3 vWorld; in vec3 vNormal; in vec3 vAlbedo; out vec4 fragColor;
-uniform samplerCube uEnvironment; uniform vec3 uCamera; uniform vec3 uLightDirection;
+uniform samplerCube uEnvironment; uniform vec3 uCamera; uniform vec3 uLightDirection; uniform float uRoughness; uniform float uMetallic;
 const float PI=3.14159265359;
 vec3 fresnel(float c,vec3 f0){return f0+(1.0-f0)*pow(clamp(1.0-c,0.0,1.0),5.0);}
 float distributionGGX(vec3 N,vec3 H,float r){float a=r*r,a2=a*a,n=max(dot(N,H),0.0),d=n*n*(a2-1.0)+1.0;return a2/max(PI*d*d,0.0001);}
 float geometrySmith(float n,float r){float k=(r+1.0)*(r+1.0)/8.0;return n/(n*(1.0-k)+k);}
 void main(){vec3 N=normalize(vNormal),V=normalize(uCamera-vWorld),L=normalize(-uLightDirection),H=normalize(V+L);
-float roughness=0.28,metallic=0.08,nv=max(dot(N,V),0.001),nl=max(dot(N,L),0.0);
+float roughness=clamp(uRoughness,0.04,1.0),metallic=clamp(uMetallic,0.0,1.0),nv=max(dot(N,V),0.001),nl=max(dot(N,L),0.0);
 vec3 F0=mix(vec3(0.04),vAlbedo,metallic),F=fresnel(max(dot(H,V),0.0),F0);
 float D=distributionGGX(N,H,roughness),G=geometrySmith(nv,roughness)*geometrySmith(nl,roughness);
 vec3 spec=(D*G*F)/max(4.0*nv*nl,0.001),kd=(1.0-F)*(1.0-metallic);
@@ -200,6 +201,7 @@ extern "C" __attribute__((visibility("default"))) int shax_init() {
     sceneMvp=glGetUniformLocation(sceneProgram,"uMvp");
     pbrMvp=glGetUniformLocation(pbrProgram,"uMvp"); pbrModel=glGetUniformLocation(pbrProgram,"uModel");
     pbrEnvironment=glGetUniformLocation(pbrProgram,"uEnvironment"); pbrCamera=glGetUniformLocation(pbrProgram,"uCamera"); pbrLight=glGetUniformLocation(pbrProgram,"uLightDirection");
+    pbrRoughness=glGetUniformLocation(pbrProgram,"uRoughness"); pbrMetallic=glGetUniformLocation(pbrProgram,"uMetallic");
     skyTime=glGetUniformLocation(skyProgram,"uTime");
     buildGeometry(); buildPbrCube(); buildEnvironment();
     if (!sceneVbo) glGenBuffers(1,&sceneVbo);
@@ -213,6 +215,8 @@ extern "C" __attribute__((visibility("default"))) int shax_init() {
     LOGI("PBR/IBL cube and bounded volumetric sky enabled; driver=%s",version?version:"unknown");
     return glGetError()==GL_NO_ERROR ? 1 : 0;
 }
+extern "C" __attribute__((visibility("default"))) void shax_set_camera(float x,float y,float z) { cameraX=x; cameraY=y; cameraZ=z; }
+extern "C" __attribute__((visibility("default"))) void shax_set_material(float roughness,float metallic) { materialRoughness=std::clamp(roughness,0.04f,1.0f); materialMetallic=std::clamp(metallic,0.0f,1.0f); }
 extern "C" __attribute__((visibility("default"))) void shax_resize(int width,int height) {
     glViewport(0,0,width>0?width:1,height>0?height:1);
 }
@@ -242,7 +246,9 @@ extern "C" __attribute__((visibility("default"))) void shax_draw(const float* vi
     glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,9*sizeof(float),reinterpret_cast<void*>(3*sizeof(float)));
     glVertexAttribPointer(2,3,GL_FLOAT,GL_FALSE,9*sizeof(float),reinterpret_cast<void*>(6*sizeof(float)));
     glUniformMatrix4fv(pbrMvp,1,GL_FALSE,mvp); glUniformMatrix4fv(pbrModel,1,GL_FALSE,model);
-    if(pbrCamera>=0) glUniform3f(pbrCamera,0.0f,1.6f,4.0f);
+    if(pbrCamera>=0) glUniform3f(pbrCamera,cameraX,cameraY,cameraZ);
+    if(pbrRoughness>=0) glUniform1f(pbrRoughness,materialRoughness);
+    if(pbrMetallic>=0) glUniform1f(pbrMetallic,materialMetallic);
     if(pbrLight>=0) glUniform3f(pbrLight,-0.4f,-0.8f,-0.25f);
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_CUBE_MAP,environmentCube);
     if(pbrEnvironment>=0) glUniform1i(pbrEnvironment,0);
