@@ -30,7 +30,8 @@ A checked box means the source implementation exists. Build/device verification 
 - [x] Stable entity IDs and versioned JSON scene serialization
 - [x] Live cube model matrix sourced from the C# entity world transform
 - [ ] Verify core tests and behaviour-to-renderer bridge in CI/device runs
-- [ ] Add transform-aware camera/light/material rendering, resource cache and disposal integration
+- [x] Pass the active orbit camera and PBR roughness/metallic settings into the native renderer; add explicit disposable resource-cache API
+- [ ] Bind scene Camera/Light components and per-entity Material/MeshRenderer instances to draw submission
 - [ ] Add scene format migrations, asset references and crash-safe transactional saves
 
 ## Milestone 3 — script IDE
@@ -44,21 +45,29 @@ A checked box means the source implementation exists. Build/device verification 
 - [ ] Verify user-edited behaviour changes the rendered cube in the APK/emulator run
 - [ ] Expand safe syntax only with tests; general Roslyn/full-language support remains out of scope until a compatible runtime is proven
 - [ ] Multi-file project tree backed by real files
+- [ ] Multi-file project tree backed by real files
 
 ## Milestone 4 — integrated mobile editor
 - [x] Scene hierarchy prototype and selected-entity transform inspector
 - [x] Position undo/redo and scene/script save on pause
 - [x] Asset-browser and console panels (initial shell)
-- [ ] Real asset import pipeline and thumbnail/metadata cache
-- [ ] Selection/picking, transform gizmos, rotation/scale inspector
+- [x] GLB 2.0 container validation, safe app-private staging/copy, and mesh/material/texture/node/animation metadata reporting
+- [ ] Decode glTF accessors, upload imported meshes/textures to GPU, generate thumbnails and maintain a persistent asset metadata cache
+- [x] Position, rotation and scale inspector controls
+- [ ] GPU-backed selection/picking and interactive translate/rotate/scale gizmos
 - [ ] Play/stop state, full command history, autosave recovery and multi-scene workflow
 
 ## Milestone 5 — rendering and production
 - [x] Native C++ shared library and GLES 3.0-compatible baseline
-- [ ] Capability-gated GLES 3.2 feature path
-- [ ] PBR, image-based lighting, shadows and material editor
-- [ ] GLB/glTF import, mesh/material assets, skeletal animation
-- [ ] GPU/CPU frame-time and memory diagnostics
+- [x] Parse and validate the active GLES version; keep ES 3.2/3.0 selection explicit
+- [ ] Add actual GLES 3.2-only rendering features with a tested ES 3.0 fallback
+- [x] Metallic-roughness Cook-Torrance PBR cube shading, procedural environment-cubemap IBL and live roughness/metallic editor controls
+- [x] Bounded 12-step animated volumetric-cloud/atmosphere approximation in the sky shader
+- [ ] Shadow maps, HDR environment import, convolved IBL and physically based atmosphere/clouds
+- [x] GLB 2.0 container/JSON validation and asset staging API
+- [ ] Full glTF accessor/mesh/material/texture GPU import and skeletal animation
+- [x] Periodic CPU render-submission timing and approximate geometry-memory diagnostics
+- [ ] GPU timer-query timing, total GPU resource accounting and frame-budget overlays
 - [ ] Automated emulator launch, crash checks, signed release APK and checksum verification
 - [ ] Physical-device matrix: GLES 3.2, GLES 3.0, pause/resume and context-loss recovery
 
