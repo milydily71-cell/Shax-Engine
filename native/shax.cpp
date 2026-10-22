@@ -204,6 +204,8 @@ void modelMatrix(float* m, const float* transform) {
 }
 }
 extern "C" __attribute__((visibility("default"))) int shax_init() {
+    // EGL context recreation invalidates all prior GL object names.
+    sceneProgram=0; pbrProgram=0; skyProgram=0; sceneVbo=0; cubeVbo=0; environmentCube=0;
     sceneProgram = linkProgram(sceneVs,sceneFs); pbrProgram=linkProgram(pbrVs,pbrFs); skyProgram=linkProgram(skyVs,skyFs);
     if (!sceneProgram || !pbrProgram || !skyProgram) return 0;
     sceneMvp=glGetUniformLocation(sceneProgram,"uMvp");
