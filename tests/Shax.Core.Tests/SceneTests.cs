@@ -44,8 +44,46 @@ public sealed class SceneTests
         Assert.NotEqual(Quaternion.Identity, cube.Transform.LocalRotation);
     }
 
-    private sealed class SpinBehaviour : ShaxBehaviour
+    [Fact]
+    public void SafeScriptSubsetCompilesAndChangesAttachedTransform()
     {
-        public override void Update(float deltaTime) => Transform.Rotate(Vector3.UnitY, 90f * deltaTime);
+        const string source = @"using Shax;
+public sealed class PlayerScript : ShaxBehaviour
+{
+    public override void Update(float deltaTime)
+    {
+        Transform.Rotate(System.Numerics.Vector3.UnitY, 45f * deltaTime);
+    }
+}";
+        var compiled = CSharpSubsetRuntime.Compile(source);
+        Assert.True(compiled.Success, string.Join("; ", compiled.Diagnostics.Select(d => d.Message)));
+        var scene = new Scene();
+        var cube = scene.CreateEntity("Cube");
+        cube.AddComponent(new InterpretedBehaviour(compiled.Program!));
+        scene.Tick(0.5f);
+        Assert.NotEqual(Quaternion.Identity, cube.Transform.LocalRotation);
+    }
+
+    [Fact]
+    public void SafeScriptSubsetRejectsFileAndNetworkApis()
+    {
+        const string source = @"using Shax;
+public sealed class BadScript : ShaxBehaviour
+{
+    public override void Update(float deltaTime)
+    {
+        System.IO.File.Delete(""important.txt"");
+    }
+}";
+        var compiled = CSharpSubsetRuntime.Compile(source);
+        Assert.False(compiled.Success);
+        Assert.Contains(compiled.Diagnostics, d => d.Severity == ScriptDiagnosticSeverity.Error && d.Message.Contains("Sandbox blocked"));
+    }
+
+    private sealed class InterpretedBehaviour : ShaxBehaviour
+    {
+        private readonly ScriptProgram _program;
+        public InterpretedBehaviour(ScriptProgram program) => _program = program;
+        public override void Update(float deltaTime) => _program.Execute(this, deltaTime);
     }
 }
