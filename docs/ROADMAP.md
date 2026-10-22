@@ -12,7 +12,7 @@ A checked box means the source implementation exists. Build/device verification 
 - [ ] Successful CI build, artifact inspection and emulator smoke test on current commit
 
 ## Milestone 1 — mobile viewport
-- [x] C++ native renderer with zenith sky gradient and colored grid axes
+- [x] C++ native renderer with world-locked sky, world-space sun/clouds, atmosphere gradient and colored grid axes
 - [x] Perspective cube rendering driven by the C# scene transform
 - [x] GLES 3.2 requested first, direct fallback to GLES 3.0 only
 - [x] One-finger orbit and pinch zoom in the .NET Android host
@@ -43,9 +43,10 @@ A checked box means the source implementation exists. Build/device verification 
 - [x] Source-size and instruction-count limits, line/column diagnostics, stop-on-runtime-error behavior
 - [x] Core tests cover supported rotation behaviour and blocked file APIs
 - [ ] Verify user-edited behaviour changes the rendered cube in the APK/emulator run
+- [x] Built-in runnable C# examples for rotation, position, scale and combined transform actions, validated by unit tests
 - [ ] Expand safe syntax only with tests; general Roslyn/full-language support remains out of scope until a compatible runtime is proven
 - [x] Multi-file C# project tree backed by app-private script files
-- [ ] Multi-file project tree backed by real files
+- [x] Multi-file project tree backed by real files, with create/open/autosave and built-in executable script templates
 
 ## Milestone 4 — integrated mobile editor
 - [x] Scene hierarchy prototype and selected-entity transform inspector
@@ -63,7 +64,7 @@ A checked box means the source implementation exists. Build/device verification 
 - [x] Parse and validate the active GLES version; keep ES 3.2/3.0 selection explicit
 - [ ] Add actual GLES 3.2-only rendering features with a tested ES 3.0 fallback
 - [x] Metallic-roughness Cook-Torrance PBR cube shading, procedural environment-cubemap IBL and live roughness/metallic editor controls
-- [x] Bounded 12-step animated volumetric-cloud/atmosphere approximation in the sky shader
+- [x] Bounded 12-step animated cloud-density integration sampled from world-direction rays, with camera inverse-VP reconstruction
 - [ ] Shadow maps, HDR environment import, convolved IBL and physically based atmosphere/clouds
 - [x] GLB 2.0 container/JSON validation and asset staging API
 - [ ] Full glTF accessor/mesh/material/texture GPU import and skeletal animation
