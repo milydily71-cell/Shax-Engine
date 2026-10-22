@@ -264,6 +264,12 @@ extern "C" __attribute__((visibility("default"))) void shax_draw(const float* vi
     glDisableVertexAttribArray(2);
     glDisableVertexAttribArray(0); glDisableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER,0);
+    static uint64_t frameCounter = 0;
+    if ((++frameCounter % 300u) == 0u) {
+        const auto cpuUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - cpuStart).count();
+        const size_t geometryBytes = (sceneVertices.size() + cubeVertices.size()) * sizeof(float);
+        LOGI("CPU render submission=%lld us; geometry memory estimate=%zu bytes; frames=%llu", (long long)cpuUs, geometryBytes, (unsigned long long)frameCounter);
+    }
 }
 extern "C" __attribute__((visibility("default"))) void shax_shutdown() {
     if (sceneVbo) glDeleteBuffers(1,&sceneVbo);
