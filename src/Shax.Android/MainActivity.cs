@@ -34,11 +34,13 @@ public sealed class MainActivity : Activity
     private readonly Stack<Vector3> _redo = new();
     private bool _highlighting;
     private RuntimeScriptBehaviour? _runtimeScript;
+    private bool _forceGles30;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
         Window?.SetFlags(WindowManagerFlags.KeepScreenOn, WindowManagerFlags.KeepScreenOn);
+        _forceGles30 = Intent?.GetBooleanExtra("shax.forceGles30", false) ?? false;
         _cubeEntity = _scene.CreateEntity("Cube");
         _cubeEntity.Transform.LocalPosition = new Vector3(0f, 0.5f, 0f);
         BuildEditorShell();
@@ -70,7 +72,7 @@ public sealed class MainActivity : Activity
 
         _workspace = new FrameLayout(this);
         _root.AddView(_workspace, new LinearLayout.LayoutParams(-1, 0, 1));
-        _viewport = new ShaxViewport(this, _scene, _cubeEntity!);
+        _viewport = new ShaxViewport(this, _scene, _cubeEntity!, _forceGles30);
         _workspace.AddView(_viewport, new FrameLayout.LayoutParams(-1, -1));
 
         _scriptPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
