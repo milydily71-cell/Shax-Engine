@@ -74,7 +74,7 @@ public sealed class MainActivity : Activity
         AddAction(toolbar, "Assets", () => ShowPanel("assets"));
         AddAction(toolbar, "Material", () => ShowPanel("material"));
         AddAction(toolbar, "Console", () => ShowPanel("console"));
-        AddAction(toolbar, "Save", SaveScript);
+        AddAction(toolbar, "Save", () => SaveScript());
         AddAction(toolbar, "Save Scene", SaveScene);
         AddAction(toolbar, "Save Material", SaveMaterialSettings);
         AddAction(toolbar, "Undo", UndoTransform);
@@ -423,7 +423,7 @@ public sealed class MainActivity : Activity
 
     private void CreateScriptDialog()
     {
-        var input = new EditText(this) { Hint = "Example.cs", SingleLine = true };
+        var input = new EditText(this) { Hint = "Example.cs" };
         new AlertDialog.Builder(this).SetTitle("Create C# script").SetView(input)
             .SetNegativeButton("Cancel", (_, _) => { })
             .SetPositiveButton("Create", (_, _) =>
