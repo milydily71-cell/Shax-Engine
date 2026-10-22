@@ -69,7 +69,7 @@ public sealed class FpsCounter
     public float FrameMilliseconds { get; private set; }
     public void AddFrame(float deltaTime)
     {
-        if (deltaTime <= 0 || !float.IsFinite(deltaTime)) return;
+        if (deltaTime <= 0 || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime)) return;
         _samples[_next] = deltaTime;
         _next = (_next + 1) % _samples.Length;
         _count = Math.Min(_count + 1, _samples.Length);
