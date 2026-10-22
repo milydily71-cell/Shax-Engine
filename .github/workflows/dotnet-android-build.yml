@@ -59,6 +59,8 @@ jobs:
           test -s "$APK"
           unzip -l "$APK" | grep -q 'lib/arm64-v8a/libshax.so'
           unzip -l "$APK" | grep -q 'lib/x86_64/libshax.so'
+          unzip -l "$APK" | grep -q 'assemblies/Shax.Core.dll'
+          unzip -l "$APK" | grep -q 'assemblies/Shax.Android.dll'
           cp "$APK" artifacts/Shax-Engine-net10-android.apk
           sha256sum artifacts/Shax-Engine-net10-android.apk > artifacts/SHA256SUMS.txt
           {
