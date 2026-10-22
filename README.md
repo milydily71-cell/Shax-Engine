@@ -1,37 +1,32 @@
 # Shax Engine
 
-Shax is a mobile-first 3D engine/editor prototype with a C# public API, .NET 10 Android host, and OpenGL ES rendering.
+Shax is a mobile-first 3D engine/editor prototype built around a C# engine API, a .NET 10 Android host, and a native C++ OpenGL ES renderer.
 
-## Current source foundations
+## Architecture
 
-- Engine-neutral C# core multi-targeting .NET Standard 2.1 and .NET 10
-- Entity/component and Transform contracts, Scene lifecycle tick, and primitive mesh data
-- Both using Shax; and a compatibility entry point under using ShaxEngine;
-- .NET 10 Android application project that references Shax.Core
-- Mobile shell with Scene, Script IDE source buffer, Play tick, and perspective cube/grid viewport
-- Java/Gradle prototype prefers an ES 3.2 EGL context, then falls back to ES 3.1 and ES 3.0
-- .NET Android host now requests ES 3.2 first, with ES 3.1 and ES 3.0 fallback
+- `src/Shax.Core`: engine-neutral C# API, scene/entity lifecycle, transform hierarchy/world matrices, camera/light/material/mesh-renderer contracts, stable entity IDs and JSON scene serialization.
+- `src/Shax.Android`: .NET 10 Android editor and live viewport. It calls the native renderer through P/Invoke and includes Scene, Script IDE, Assets, Console, transform inspector, basic diagnostics, scene/script persistence and position undo/redo.
+- `native/`: C++20 renderer exported as `libshax.so`, built with Android NDK/CMake for arm64-v8a and x86_64.
+- `tests/Shax.Core.Tests`: automated tests for transform hierarchy, scene serialization and behaviour ticks.
 
-These are source implementations, not yet a verified release. CI and physical-device builds must pass before the APK can be called working. Advanced ES 3.2-only rendering paths, a sky gradient in the .NET viewport, and editor-grade scripting remain in progress.
+## Graphics policy
 
-## Build the .NET Android app
+The Android host requests **OpenGL ES 3.2 first, then falls directly back to ES 3.0**. There is no ES 3.1 fallback target. The current native renderer uses GLES 3.0-compatible APIs so the same baseline path works on both; ES 3.2-only features are a future capability-gated milestone.
 
-Install .NET 10 SDK, Java 17, and Android SDK, then run:
+The C++ viewport draws a zenith sky gradient, grid, colored X/Y/Z axes and a cube driven by the C# scene transform. One-finger drag orbits the camera and pinch gestures zoom.
 
-    dotnet workload install android
-    dotnet restore src/Shax.Android/Shax.Android.csproj
-    dotnet publish src/Shax.Android/Shax.Android.csproj -c Release -f net10.0-android -p:AndroidPackageFormat=apk
+## Reproducible build and artifact
 
-The CI workflow is .github/workflows/dotnet-android-build.yml. Check its run and artifact before installing.
+The workflow `.github/workflows/dotnet-android-build.yml` pins .NET SDK 10.0.100, Java 17, Android platform/build tools 35, NDK 27.2.12479018 and CMake 3.22.1. It builds native libraries for arm64-v8a and x86_64, runs C# core tests, publishes the APK, checks that both `libshax.so` files are inside it, emits a SHA-256 checksum, uploads the artifact and attempts an Android emulator smoke test.
 
-## Project guide
+Open [GitHub Actions](https://github.com/milydily71-cell/Shax-Engine/actions) and download `shax-engine-net10-native-apk` only from a successful run. The APK is not considered verified until the packaging and emulator smoke-test jobs pass.
 
-- Architecture: docs/ARCHITECTURE.md
-- Roadmap: docs/ROADMAP.md
-- API and editor integration: docs/SHAX_API_AND_EDITOR.md
-- Core API: src/Shax.Core/README.md
-- .NET Android host: src/Shax.Android/README.md
+## Local build
 
-## Next editor/runtime milestones
+Install .NET SDK 10.0.100, Java 17, Android SDK platform/build tools 35, NDK 27.2.12479018 and CMake 3.22.1. See [Android build instructions](src/Shax.Android/README.md).
 
-Add sky gradient and axis colors, orbit/pinch controls to the .NET viewport, selection and transform inspector, asset browser, script diagnostics, project save/load, and a secure C# compilation pipeline.
+## Known limitations
+
+The Script IDE currently provides a source buffer, basic syntax coloring and delimiter diagnostics; it does **not** compile and execute arbitrary edited C# code. The visible rotating cube uses a compiled-in C# behaviour. Dynamic scripting must account for .NET Android AOT limitations and needs a deliberately constrained, tested execution model.
+
+Automated CI can verify an emulator run but cannot certify physical hardware. ES 3.2/3.0 device-specific rendering, pause/resume and EGL context-loss behavior still require hands-on device tests. PBR, image-based lighting, shadows, glTF/GLB import, animation, full asset pipeline, robust sandboxing and GPU profiling remain planned.
