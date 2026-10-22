@@ -51,7 +51,7 @@ jobs:
         run: dotnet restore src/Shax.Android/Shax.Android.csproj
       - name: Publish Release APK
         run: dotnet publish src/Shax.Android/Shax.Android.csproj -c Release -f net10.0-android --no-restore -p:AndroidPackageFormat=apk
-      - name: Verify APKs, managed assemblies and native ABIs
+      - name: Verify universal APK, managed C# AOT libraries and native ABIs
         shell: bash
         run: |
           set -euo pipefail
@@ -59,25 +59,19 @@ jobs:
           mapfile -t APKS < <(find src/Shax.Android/bin/Release -type f -name '*.apk' | sort)
           test "${#APKS[@]}" -gt 0
           for APK in "${APKS[@]}"; do
-            echo "Inspecting $APK"
             CONTENTS="$(unzip -Z1 "$APK")"
-            echo "$CONTENTS" | grep -E 'libshax.so|Shax.Core.dll|Shax.Android.dll|assemblies' || true
-            if grep -q 'lib/arm64-v8a/libshax.so' <<< "$CONTENTS"; then
-              cp "$APK" artifacts/Shax-Engine-net10-arm64.apk
-            fi
-            if grep -q 'lib/x86_64/libshax.so' <<< "$CONTENTS"; then
-              cp "$APK" artifacts/Shax-Engine-net10-x86_64.apk
+            if grep -q 'lib/arm64-v8a/libshax.so' <<< "$CONTENTS" && grep -q 'lib/x86_64/libshax.so' <<< "$CONTENTS"; then
+              cp "$APK" artifacts/Shax-Engine-net10-universal.apk
+              break
             fi
           done
-          test -s artifacts/Shax-Engine-net10-arm64.apk
-          test -s artifacts/Shax-Engine-net10-x86_64.apk
-          for APK in artifacts/Shax-Engine-net10-arm64.apk artifacts/Shax-Engine-net10-x86_64.apk; do
-            CONTENTS="$(unzip -Z1 "$APK")"
-            grep -q 'libshax.so' <<< "$CONTENTS"
-            grep -q 'Shax.Core.dll' <<< "$CONTENTS"
-            grep -q 'Shax.Android.dll' <<< "$CONTENTS"
-          done
-          sha256sum artifacts/Shax-Engine-net10-arm64.apk artifacts/Shax-Engine-net10-x86_64.apk > artifacts/SHA256SUMS.txt
+          test -s artifacts/Shax-Engine-net10-universal.apk
+          CONTENTS="$(unzip -Z1 artifacts/Shax-Engine-net10-universal.apk)"
+          grep -q 'lib/arm64-v8a/libshax.so' <<< "$CONTENTS"
+          grep -q 'lib/x86_64/libshax.so' <<< "$CONTENTS"
+          grep -q 'Shax.Core.dll' <<< "$CONTENTS"
+          grep -q 'Shax.Android.dll' <<< "$CONTENTS"
+          sha256sum artifacts/Shax-Engine-net10-universal.apk > artifacts/SHA256SUMS.txt
           {
             echo "dotnet=10.0.100"
             echo "java=17"
@@ -109,7 +103,7 @@ jobs:
           profile: pixel_2
           script: |
             set -euxo pipefail
-            adb install artifacts/Shax-Engine-net10-x86_64.apk
+            adb install artifacts/Shax-Engine-net10-universal.apk
             adb shell monkey -p com.shax.engine.dotnet 1
             sleep 10
             adb shell pidof com.shax.engine.dotnet
