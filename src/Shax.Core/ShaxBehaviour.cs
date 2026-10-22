@@ -6,6 +6,9 @@ public abstract class ShaxBehaviour
     public Entity? Entity { get; internal set; }
     public Transform Transform => Entity?.Transform
         ?? throw new InvalidOperationException("Behaviour is not attached to an entity.");
+    public T? GetComponent<T>() where T : class => Entity?.GetComponent<T>();
+    public T AddComponent<T>(T component) where T : class =>
+        Entity?.AddComponent(component) ?? throw new InvalidOperationException("Behaviour is not attached to an entity.");
 
     public virtual void Awake() { }
     public virtual void OnEnable() { }
