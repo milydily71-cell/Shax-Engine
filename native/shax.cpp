@@ -1,10 +1,12 @@
 #include <GLES3/gl3.h>
+#include <EGL/egl.h>
 #include <android/log.h>
 #include <array>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "ShaxNative", __VA_ARGS__)
@@ -16,6 +18,81 @@ GLint skyTime = -1, skyInverseViewProjection = -1, skyCamera = -1;
 float cameraX = 0.0f, cameraY = 1.6f, cameraZ = 4.0f, materialRoughness = 0.28f, materialMetallic = 0.08f;
 GLsizei gridCount = 0, cubeCount = 0;
 std::vector<float> sceneVertices, cubeVertices;
+
+using GenQueriesExt = void (*)(GLsizei, GLuint*);
+using DeleteQueriesExt = void (*)(GLsizei, const GLuint*);
+using BeginQueryExt = void (*)(GLenum, GLuint);
+using EndQueryExt = void (*)(GLenum);
+using GetQueryObjectUivExt = void (*)(GLuint, GLenum, GLuint*);
+using GetQueryObjectUi64vExt = void (*)(GLuint, GLenum, unsigned long long*);
+constexpr GLenum TIME_ELAPSED_EXT = 0x88BF;
+constexpr GLenum QUERY_RESULT_AVAILABLE_EXT = 0x8867;
+constexpr GLenum QUERY_RESULT_EXT = 0x8866;
+constexpr GLenum GPU_DISJOINT_EXT = 0x8FBB;
+GenQueriesExt genQueriesExt = nullptr;
+DeleteQueriesExt deleteQueriesExt = nullptr;
+BeginQueryExt beginQueryExt = nullptr;
+EndQueryExt endQueryExt = nullptr;
+GetQueryObjectUivExt getQueryObjectUivExt = nullptr;
+GetQueryObjectUi64vExt getQueryObjectUi64vExt = nullptr;
+GLuint gpuQueries[4]{};
+bool gpuQueryPending[4]{};
+bool gpuTimingEnabled = false;
+bool gpuQueryActive = false;
+unsigned int gpuQueryCursor = 0;
+unsigned int gpuTimingFrame = 0;
+
+void initializeGpuTiming() {
+    const auto* ext = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
+    const bool supported = ext && std::strstr(ext, "GL_EXT_disjoint_timer_query");
+    if (!supported) {
+        LOGI("GPU timer queries unavailable; CPU render timing remains enabled");
+        return;
+    }
+    genQueriesExt = reinterpret_cast<GenQueriesExt>(eglGetProcAddress("glGenQueriesEXT"));
+    deleteQueriesExt = reinterpret_cast<DeleteQueriesExt>(eglGetProcAddress("glDeleteQueriesEXT"));
+    beginQueryExt = reinterpret_cast<BeginQueryExt>(eglGetProcAddress("glBeginQueryEXT"));
+    endQueryExt = reinterpret_cast<EndQueryExt>(eglGetProcAddress("glEndQueryEXT"));
+    getQueryObjectUivExt = reinterpret_cast<GetQueryObjectUivExt>(eglGetProcAddress("glGetQueryObjectuivEXT"));
+    getQueryObjectUi64vExt = reinterpret_cast<GetQueryObjectUi64vExt>(eglGetProcAddress("glGetQueryObjectui64vEXT"));
+    if (!genQueriesExt || !deleteQueriesExt || !beginQueryExt || !endQueryExt ||
+        !getQueryObjectUivExt || !getQueryObjectUi64vExt) {
+        LOGI("GPU timer extension advertised but entry points unavailable; CPU timing fallback enabled");
+        return;
+    }
+    genQueriesExt(4, gpuQueries);
+    gpuTimingEnabled = gpuQueries[0] != 0 && gpuQueries[1] != 0 && gpuQueries[2] != 0 && gpuQueries[3] != 0;
+    LOGI("GPU timer query support=%s", gpuTimingEnabled ? "enabled" : "disabled");
+}
+
+void beginGpuTiming() {
+    if (!gpuTimingEnabled) return;
+    for (unsigned int i = 0; i < 4; ++i) {
+        if (!gpuQueryPending[i]) continue;
+        GLuint available = 0;
+        getQueryObjectUivExt(gpuQueries[i], QUERY_RESULT_AVAILABLE_EXT, &available);
+        if (!available) continue;
+        unsigned long long elapsed = 0;
+        getQueryObjectUi64vExt(gpuQueries[i], QUERY_RESULT_EXT, &elapsed);
+        GLint disjoint = 0;
+        glGetIntegerv(GPU_DISJOINT_EXT, &disjoint);
+        if (!disjoint && (++gpuTimingFrame % 60u) == 0u)
+            LOGI("GPU frame time=%.3f ms (EXT_disjoint_timer_query)", static_cast<double>(elapsed) / 1000000.0);
+        gpuQueryPending[i] = false;
+    }
+    if (gpuQueryPending[gpuQueryCursor]) return;
+    beginQueryExt(TIME_ELAPSED_EXT, gpuQueries[gpuQueryCursor]);
+    gpuQueryActive = true;
+}
+
+void endGpuTiming() {
+    if (!gpuTimingEnabled || !gpuQueryActive) return;
+    endQueryExt(TIME_ELAPSED_EXT);
+    gpuQueryPending[gpuQueryCursor] = true;
+    gpuQueryCursor = (gpuQueryCursor + 1u) % 4u;
+    gpuQueryActive = false;
+}
+
 constexpr float PI = 3.14159265358979323846f;
 
 GLuint compile(GLenum type, const char* source) {
@@ -238,6 +315,7 @@ extern "C" __attribute__((visibility("default"))) int shax_init() {
     pbrRoughness=glGetUniformLocation(pbrProgram,"uRoughness"); pbrMetallic=glGetUniformLocation(pbrProgram,"uMetallic");
     skyTime=glGetUniformLocation(skyProgram,"uTime"); skyInverseViewProjection=glGetUniformLocation(skyProgram,"uInverseViewProjection"); skyCamera=glGetUniformLocation(skyProgram,"uCamera");
     buildGeometry(); buildPbrCube(); buildEnvironment();
+    initializeGpuTiming();
     if (!sceneVbo) glGenBuffers(1,&sceneVbo);
     glBindBuffer(GL_ARRAY_BUFFER,sceneVbo);
     glBufferData(GL_ARRAY_BUFFER,static_cast<GLsizeiptr>(sceneVertices.size()*sizeof(float)),
@@ -260,6 +338,7 @@ extern "C" __attribute__((visibility("default"))) void shax_draw(const float* vi
                                                                     float timeSeconds) {
     if (!sceneProgram || !skyProgram || !viewProjection || !inverseViewProjection) return;
     const auto cpuStart = std::chrono::steady_clock::now();
+    beginGpuTiming();
     glClearColor(0.03f,0.05f,0.09f,1.0f);
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST); glUseProgram(skyProgram);
@@ -294,6 +373,7 @@ extern "C" __attribute__((visibility("default"))) void shax_draw(const float* vi
     glDisableVertexAttribArray(2);
     glDisableVertexAttribArray(0); glDisableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER,0);
+    endGpuTiming();
     static uint64_t frameCounter = 0;
     if ((++frameCounter % 300u) == 0u) {
         const auto cpuUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - cpuStart).count();
@@ -308,5 +388,8 @@ extern "C" __attribute__((visibility("default"))) void shax_shutdown() {
     if (pbrProgram) glDeleteProgram(pbrProgram);
     if (sceneProgram) glDeleteProgram(sceneProgram);
     if (skyProgram) glDeleteProgram(skyProgram);
+    if (gpuTimingEnabled && deleteQueriesExt) deleteQueriesExt(4, gpuQueries);
+    gpuTimingEnabled = false; gpuQueryActive = false;
+    for (int i=0;i<4;i++) { gpuQueries[i]=0; gpuQueryPending[i]=false; }
     sceneVbo=cubeVbo=environmentCube=sceneProgram=pbrProgram=skyProgram=0;
 }
