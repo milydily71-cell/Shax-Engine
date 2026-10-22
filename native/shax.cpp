@@ -13,7 +13,7 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "ShaxNative", __VA_ARGS__)
 namespace {
 GLuint sceneProgram = 0, pbrProgram = 0, skyProgram = 0, sceneVbo = 0, cubeVbo = 0, environmentCube = 0;
-GLint sceneMvp = -1, pbrMvp = -1, pbrModel = -1, pbrEnvironment = -1, pbrCamera = -1, pbrLight = -1, pbrRoughness = -1, pbrMetallic = -1;
+GLint sceneMvp = -1, pbrMvp = -1, pbrModel = -1, pbrEnvironment = -1, pbrCamera = -1, pbrLight = -1, pbrRoughness = -1, pbrMetallic = -1, pbrJointMatrices = -1, pbrJointCount = -1, pbrSkinned = -1;
 GLint skyTime = -1, skyInverseViewProjection = -1, skyCamera = -1;
 float cameraX = 0.0f, cameraY = 1.6f, cameraZ = 4.0f, materialRoughness = 0.28f, materialMetallic = 0.08f;
 GLsizei gridCount = 0, cubeCount = 0;
@@ -178,8 +178,18 @@ void main(){ fragColor=vec4(vColor,1.0); })";
 
 constexpr const char* pbrVs = R"(#version 300 es
 layout(location=0) in vec3 aPosition; layout(location=1) in vec3 aNormal; layout(location=2) in vec3 aAlbedo;
-uniform mat4 uMvp; uniform mat4 uModel; out vec3 vWorld; out vec3 vNormal; out vec3 vAlbedo;
-void main(){vec4 w=uModel*vec4(aPosition,1.0);vWorld=w.xyz;vNormal=normalize(transpose(inverse(mat3(uModel)))*aNormal);vAlbedo=aAlbedo;gl_Position=uMvp*vec4(aPosition,1.0);})";
+layout(location=3) in vec4 aJoints; layout(location=4) in vec4 aWeights;
+uniform mat4 uMvp; uniform mat4 uModel; uniform mat4 uJointMatrices[32]; uniform int uJointCount; uniform int uSkinned;
+out vec3 vWorld; out vec3 vNormal; out vec3 vAlbedo;
+void main(){
+ vec4 p=vec4(aPosition,1.0); vec3 n=aNormal;
+ if(uSkinned==1 && uJointCount>0){
+   mat4 skin=mat4(0.0);
+   for(int i=0;i<4;i++){int j=int(aJoints[i]); if(j>=0 && j<uJointCount) skin+=uJointMatrices[j]*aWeights[i];}
+   p=skin*p; n=mat3(skin)*n;
+ }
+ vec4 w=uModel*p; vWorld=w.xyz; vNormal=normalize(transpose(inverse(mat3(uModel)))*n); vAlbedo=aAlbedo; gl_Position=uMvp*p;
+})";
 constexpr const char* pbrFs = R"(#version 300 es
 precision highp float; in vec3 vWorld; in vec3 vNormal; in vec3 vAlbedo; out vec4 fragColor;
 uniform samplerCube uEnvironment; uniform vec3 uCamera; uniform vec3 uLightDirection; uniform float uRoughness; uniform float uMetallic;
@@ -313,6 +323,8 @@ extern "C" __attribute__((visibility("default"))) int shax_init() {
     pbrMvp=glGetUniformLocation(pbrProgram,"uMvp"); pbrModel=glGetUniformLocation(pbrProgram,"uModel");
     pbrEnvironment=glGetUniformLocation(pbrProgram,"uEnvironment"); pbrCamera=glGetUniformLocation(pbrProgram,"uCamera"); pbrLight=glGetUniformLocation(pbrProgram,"uLightDirection");
     pbrRoughness=glGetUniformLocation(pbrProgram,"uRoughness"); pbrMetallic=glGetUniformLocation(pbrProgram,"uMetallic");
+    pbrJointMatrices=glGetUniformLocation(pbrProgram,"uJointMatrices[0]");
+    pbrJointCount=glGetUniformLocation(pbrProgram,"uJointCount"); pbrSkinned=glGetUniformLocation(pbrProgram,"uSkinned");
     skyTime=glGetUniformLocation(skyProgram,"uTime"); skyInverseViewProjection=glGetUniformLocation(skyProgram,"uInverseViewProjection"); skyCamera=glGetUniformLocation(skyProgram,"uCamera");
     buildGeometry(); buildPbrCube(); buildEnvironment();
     initializeGpuTiming();
@@ -353,6 +365,7 @@ extern "C" __attribute__((visibility("default"))) void shax_draw(const float* vi
     glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,6*sizeof(float),reinterpret_cast<void*>(3*sizeof(float)));
     glUniformMatrix4fv(sceneMvp,1,GL_FALSE,viewProjection);
     glDrawArrays(GL_LINES,0,gridCount);
+    if (importedIndexCount == 0) {
     float model[16]; modelMatrix(model,cubeModel);
     float mvp[16]{};
     for(int col=0;col<4;col++) for(int row=0;row<4;row++)
@@ -373,7 +386,8 @@ extern "C" __attribute__((visibility("default"))) void shax_draw(const float* vi
     glDisableVertexAttribArray(2);
     glDisableVertexAttribArray(0); glDisableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER,0);
-    endGpuTiming();
+    }
+    if (importedIndexCount == 0) endGpuTiming();
     static uint64_t frameCounter = 0;
     if ((++frameCounter % 300u) == 0u) {
         const auto cpuUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - cpuStart).count();
