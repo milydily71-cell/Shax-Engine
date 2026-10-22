@@ -211,3 +211,37 @@ public static class GlbAssetImporter
     private static int Count(JsonElement root, string name) =>
         root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array ? value.GetArrayLength() : 0;
 }
+
+
+/// <summary>Crash-resistant JSON persistence for editor PBR material settings.</summary>
+public static class PbrMaterialStore
+{
+    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+    public static void SaveAtomic(string path, PbrMaterialSettings settings)
+    {
+        if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("A material path is required.", nameof(path));
+        if (settings is null) throw new ArgumentNullException(nameof(settings));
+        settings.Validate();
+        var fullPath = Path.GetFullPath(path);
+        var directory = Path.GetDirectoryName(fullPath) ?? throw new IOException("Material path has no directory.");
+        Directory.CreateDirectory(directory);
+        var temporary = fullPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(settings, Options), new UTF8Encoding(false));
+            File.Move(temporary, fullPath, overwrite: true);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+
+    public static PbrMaterialSettings Load(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("A material path is required.", nameof(path));
+        if (!File.Exists(path)) return new PbrMaterialSettings();
+        var value = JsonSerializer.Deserialize<PbrMaterialSettings>(File.ReadAllText(path), Options)
+            ?? throw new InvalidDataException("Material settings JSON is empty or invalid.");
+        value.Validate();
+        return value;
+    }
+}
