@@ -23,7 +23,7 @@ final class ShaxRenderer implements GLSurfaceView.Renderer {
     void zoom(float factor) { if (factor > 0) distance = Math.max(2.5f, Math.min(18f, distance / factor)); }
 
     @Override public void onSurfaceCreated(GL10 unused, EGLConfig config) {
-        glVersion = GLES30.glGetString(GLES30.GL_VERSION);
+        glVersion = GLES30.glGetString(GLES30.GL_VERSION);\n        if (glVersion == null || !glVersion.matches("OpenGL ES 3\\.(0|2)(?:\\s|$).*")) {\n            throw new IllegalStateException("Shax supports only OpenGL ES 3.2 or ES 3.0; active driver: " + glVersion);\n        }\n        android.util.Log.i("ShaxRenderer", "Active GLES driver: " + glVersion);
         skyProgram = program(SKY_VS, SKY_FS);
         solidProgram = program(SOLID_VS, SOLID_FS);
         gridProgram = program(SOLID_VS, SOLID_FS);
