@@ -84,6 +84,7 @@ public sealed class MainActivity : Activity
         AddAction(toolbar, "Assets", () => ShowPanel("assets"));
         AddAction(toolbar, "Material", () => ShowPanel("material"));
         AddAction(toolbar, "Render Lab · 15", ShowRenderLab);
+        AddAction(toolbar, "Preview Mesh", ToggleDemoMeshPreview);
         AddAction(toolbar, "Physics", ShowPhysicsPanel);
         AddAction(toolbar, "Console", () => ShowPanel("console"));
         AddAction(toolbar, "Save", () => SaveScript());
@@ -358,6 +359,16 @@ public sealed class MainActivity : Activity
         RefreshInspector();
         ShowPanel("scene");
         SetStatus("Active scene: " + _scene.Name + " • saved independently to " + _sceneFileName);
+    }
+
+    private bool _demoMeshPreviewVisible;
+    private void ToggleDemoMeshPreview()
+    {
+        _demoMeshPreviewVisible = !_demoMeshPreviewVisible;
+        _viewport?.SetDemoCubeVisible(_demoMeshPreviewVisible);
+        SetStatus(_demoMeshPreviewVisible
+            ? "Preview mesh enabled. The baseplate and origin-following grid remain the default world."
+            : "Preview mesh hidden. Empty baseplate/grid world active.");
     }
 
     private void ShowPhysicsPanel() => ShowPanel("physics");
