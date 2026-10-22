@@ -36,6 +36,8 @@ public sealed class ShaxViewport : GLSurfaceView
         KeepScreenOn = true;
     }
 
+    public void SetMaterial(float roughness, float metallic) => QueueEvent(() => _renderer.SetMaterial(roughness, metallic));
+
     public override bool OnTouchEvent(MotionEvent? e)
     {
         if (e is null) return false;
@@ -111,6 +113,7 @@ public sealed class ShaxViewport : GLSurfaceView
         private readonly float[] _cubeModel = new float[16];
         private int _width = 1, _height = 1;
         private float _yaw = 0.65f, _pitch = 0.35f, _distance = 7.5f;
+        private float _roughness = 0.28f, _metallic = 0.08f;
         private long _startMilliseconds;
 
         public ViewportRenderer(Scene scene, Entity cubeEntity, bool forceGles30) { _scene = scene; _cubeEntity = cubeEntity; _forceGles30 = forceGles30; }
@@ -164,8 +167,14 @@ public sealed class ShaxViewport : GLSurfaceView
             _cubeModel[12]=world.M41; _cubeModel[13]=world.M42; _cubeModel[14]=world.M43; _cubeModel[15]=world.M44;
             var time = (Java.Lang.JavaSystem.CurrentTimeMillis() - _startMilliseconds) / 1000f;
             NativeSetCamera(eyeX, eyeY, eyeZ);
-            NativeSetMaterial(0.28f, 0.08f);
+            NativeSetMaterial(_roughness, _metallic);
             NativeDraw(_viewProjection, _cubeModel, time);
+        }
+
+        public void SetMaterial(float roughness, float metallic)
+        {
+            _roughness = Math.Clamp(roughness, 0.04f, 1f);
+            _metallic = Math.Clamp(metallic, 0f, 1f);
         }
 
         public void Orbit(float dx, float dy)
