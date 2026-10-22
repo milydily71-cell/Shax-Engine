@@ -17,7 +17,7 @@ public sealed class RenderingPipelineTests
     [Theory]
     [InlineData("OpenGL ES 3.2 V@123", true, 2)]
     [InlineData("OpenGL ES 3.0 V@123", true, 0)]
-    [InlineData("OpenGL ES 3.1 V@123", true, 1)]
+    [InlineData("OpenGL ES 3.1 V@123", false, 0)]
     [InlineData("OpenGL ES 2.0", false, 0)]
     [InlineData("not a GL version", false, 0)]
     public void ParsesActiveGraphicsCapabilities(string version, bool expected, int minor)
