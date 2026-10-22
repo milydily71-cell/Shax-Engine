@@ -3,7 +3,7 @@ using System.Numerics;
 namespace Shax;
 
 /// <summary>Third-/first-person character movement with camera-relative input, gravity, jump and collision callbacks.</summary>
-public sealed class PlayerController : ShaxBehaviour, ICollisionListener
+public class PlayerController : ShaxBehaviour, ICollisionListener
 {
     private CharacterController? _controller;
     private CameraComponent? _camera;
