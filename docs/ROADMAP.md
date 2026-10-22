@@ -1,51 +1,45 @@
 # Shax Engine roadmap
 
-## Milestone 0 — repository foundation
-- [x] Define mobile-first architecture and public C# direction
-- [x] Define incremental rendering and editor milestones
-- [ ] Add a reproducible Android/.NET build setup
-- [ ] Add CI build and unit tests
+## Milestone 0 — foundation
+- [x] Initial engine-neutral C# API and architecture documents
+- [x] Multi-target core for .NET Standard 2.1 and .NET 10
+- [x] Scene lifecycle tick and script document/diagnostic contracts
+- [x] .NET 10 Android host referencing Shax.Core
+- [ ] Reproducible Android/.NET build and verified CI artifact
 
-## Milestone 1 — first visible 3D scene
-- [x] Initial Android app shell and GLES surface source added (build/device verification pending)
-- [ ] Android app launches into a GLES 3.1 surface with GLES 3.0 fallback
-- [ ] Clear color, viewport resize and lifecycle/context-loss handling
-- [ ] Perspective camera and touch orbit/pan/zoom
-- [ ] Ground grid and XYZ axes
-- [ ] Zenith-to-horizon sky gradient
-- [ ] Indexed cube and UV sphere with depth testing
-- [ ] Directional light and basic lit material
-- Acceptance: scene stays responsive through pause/resume and orientation changes on a physical Android device.
+## Milestone 1 — mobile 3D viewport
+- [x] .NET Android editor shell with Scene, Script IDE buffer, and Play tick
+- [x] Perspective camera, procedural grid, and rotating cube source
+- [x] Java and .NET Android sources request ES 3.2 first, then fall back to 3.1 and 3.0
+- [ ] Zenith sky gradient, colored axes, orbit/pinch controls in the .NET host
+- [ ] Build and launch on physical Android devices with both ES 3.2 and ES 3.0 paths
+- [ ] Context-loss and pause/resume verification
 
-## Milestone 2 — C# engine API
-- [ ] Entity/component model and stable entity IDs
-- [ ] Transform hierarchy and local/world matrices
-- [ ] Scene lifecycle: Awake, OnEnable, Start, Update, LateUpdate, OnDisable, OnDestroy
-- [ ] Public primitives: cube, sphere, plane and capsule
-- [ ] Materials, camera, light and mesh renderer components
-- [ ] JSON scene serialization with schema versioning
-- Acceptance: a C# script creates and moves a cube in a sample scene.
+## Milestone 2 — engine/runtime
+- [x] Entity/component and Transform starting contracts
+- [x] Scene lifecycle callbacks and primitive cube data
+- [ ] Transform hierarchy and world matrices
+- [ ] Camera, lights, material, mesh renderer, and resource ownership
+- [ ] Scene serialization and stable IDs
+- [ ] Verify a user C# behaviour changes the rendered cube
 
-## Milestone 3 — playable runtime
-- [ ] Script build/load pipeline with diagnostics
-- [ ] Touch, keyboard/gamepad abstraction
-- [ ] Resource/asset database and GLB/glTF import
-- [ ] Audio, collision/physics integration and animation
-- [ ] Package a standalone Android game from a project
+## Milestone 3 — script IDE
+- [x] Editable C# source buffer and diagnostic data model
+- [ ] Syntax highlighting, project tree, file save/load, diagnostics panel
+- [ ] Compiler/runtime integration with Android/AOT constraints tested
+- [ ] Sandboxed script permissions and robust error reporting
 
-## Milestone 4 — mobile editor
-- [ ] Hierarchy and selection
-- [ ] Scene viewport with editor-only grid and gizmos
-- [ ] Inspector for transforms and component properties
-- [ ] Asset browser, import status and console
-- [ ] Play/stop and runtime/editor state separation
-- [ ] Undo/redo and autosave
+## Milestone 4 — integrated mobile editor
+- [ ] Scene hierarchy and selection
+- [ ] Transform inspector and gizmos
+- [ ] Asset browser and import pipeline
+- [ ] Console, play/stop, undo/redo, and autosave
 
-## Milestone 5 — performance and production
-- [ ] GPU/CPU frame-time overlay and memory diagnostics
-- [ ] Frustum culling, batching and instancing
-- [ ] ETC2 texture support and mesh LODs
-- [ ] Crash-safe project saves and automated smoke tests
+## Milestone 5 — rendering and production
+- [ ] GLES 3.2 advanced feature paths gated by capability detection
+- [ ] PBR materials, image-based lighting, shadows, GLB/glTF, animation
+- [ ] GPU/CPU frame-time and memory diagnostics
+- [ ] Automated smoke tests, crash-safe saves, and release APK verification
 
 ## Definition of done
-A checkbox is complete only when code exists, the relevant build/test succeeds, and the target Android behavior is verified. A plan or source-only prototype is not a tested release.
+A checkbox is complete only when source exists and relevant builds/tests succeed; device-specific rendering is verified only after testing on that hardware. Source-only prototypes are not verified releases.
