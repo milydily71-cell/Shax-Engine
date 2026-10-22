@@ -10,11 +10,11 @@ namespace Shax;
 /// </summary>
 public static class CSharpSubsetRuntime
 {
-    private static readonly Regex BehaviourType = new(@"\bclass\s+\w+\s*:\s*(?:Shax\.)?ShaxBehaviour\b", RegexOptions.Compiled);
-    private static readonly Regex UpdateMethod = new(@"\bUpdate\s*\(\s*float\s+deltaTime\s*\)\s*\{(?<body>[^{}]*)\}", RegexOptions.Compiled | RegexOptions.Singleline);
-    private static readonly Regex Rotate = new(@"^Transform\.Rotate\s*\(\s*(?:(?:System\.Numerics)\.)?Vector3\.Unit(?<axis>[XYZ])\s*,\s*(?<speed>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*\*\s*deltaTime\s*\)$", RegexOptions.Compiled);
-    private static readonly Regex VectorAssignment = new(@"^Transform\.(?<property>LocalPosition|LocalScale)\s*=\s*new\s+(?:(?:System\.Numerics)\.)?Vector3\s*\(\s*(?<x>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*,\s*(?<y>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*,\s*(?<z>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*\)$", RegexOptions.Compiled);
-    private static readonly Regex Comments = new(@"//[^\r\n]*|/\*.*?\*/", RegexOptions.Compiled | RegexOptions.Singleline);
+    private static readonly Regex BehaviourType = new(@"\bclass\s+\w+\s*:\s*(?:Shax\.)?ShaxBehaviour\b", RegexOptions.None);
+    private static readonly Regex UpdateMethod = new(@"\bUpdate\s*\(\s*float\s+deltaTime\s*\)\s*\{(?<body>[^{}]*)\}", RegexOptions.Singleline);
+    private static readonly Regex Rotate = new(@"^Transform\.Rotate\s*\(\s*(?:(?:System\.Numerics)\.)?Vector3\.Unit(?<axis>[XYZ])\s*,\s*(?<speed>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*\*\s*deltaTime\s*\)$", RegexOptions.None);
+    private static readonly Regex VectorAssignment = new(@"^Transform\.(?<property>LocalPosition|LocalScale)\s*=\s*new\s+(?:(?:System\.Numerics)\.)?Vector3\s*\(\s*(?<x>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*,\s*(?<y>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*,\s*(?<z>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*\)$", RegexOptions.None);
+    private static readonly Regex Comments = new(@"//[^\r\n]*|/\*.*?\*/", RegexOptions.Singleline);
     private static readonly string[] ForbiddenTokens =
     {
         "System.IO", "System.Net", "Reflection", "DllImport", "Process", "unsafe",
