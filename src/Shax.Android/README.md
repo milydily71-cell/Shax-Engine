@@ -4,7 +4,7 @@ This app targets .NET 10 Android and references Shax.Core directly. It loads the
 
 ## Reproducible CI build
 
-The workflow pins .NET SDK 10.0.100, Java 17, Android platform/build tools 35, NDK 27.2.12479018, and CMake 3.22.1. It builds native libraries for arm64-v8a and x86_64, runs core tests, publishes the APK, verifies both native libraries are present, emits SHA-256 metadata, and attempts an Android emulator launch.
+The workflow pins .NET SDK 10.0.100, Java 17, Android platform/build tools 35, NDK 27.2.12479018, and CMake 3.22.1. It builds native libraries for arm64-v8a and x86_64 with 16 KB page-size compatibility, runs core tests, publishes the APK, verifies both native libraries and C# assemblies are present, emits SHA-256 metadata, and attempts an Android emulator launch.
 
 Download the `shax-engine-net10-native-apk` artifact from a successful GitHub Actions run. The checksum is provided as `SHA256SUMS.txt`.
 
