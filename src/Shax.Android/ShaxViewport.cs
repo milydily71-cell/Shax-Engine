@@ -2,6 +2,10 @@ using Android.Content;
 using Android.Opengl;
 using Android.Views;
 using Javax.Microedition.Khronos.Egl;
+using EGLConfig = Javax.Microedition.Khronos.Egl.EGLConfig;
+using EGLContext = Javax.Microedition.Khronos.Egl.EGLContext;
+using EGLDisplay = Javax.Microedition.Khronos.Egl.EGLDisplay;
+using EGL10 = Javax.Microedition.Khronos.Egl.EGL10;
 using Javax.Microedition.Khronos.Opengles;
 
 namespace Shax.Android;
