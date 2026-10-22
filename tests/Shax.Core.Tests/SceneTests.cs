@@ -80,7 +80,7 @@ public sealed class BadScript : ShaxBehaviour
         Assert.Contains(compiled.Diagnostics, d => d.Severity == ScriptDiagnosticSeverity.Error && d.Message.Contains("Sandbox blocked"));
     }
 
-    private sealed class InterpretedBehaviour : ShaxBehaviour
+    private sealed class SpinBehaviour : ShaxBehaviour\n    {\n        public override void Update(float deltaTime) => Transform.Rotate(Vector3.UnitY, 90f * deltaTime);\n    }\n\n    private sealed class InterpretedBehaviour : ShaxBehaviour
     {
         private readonly ScriptProgram _program;
         public InterpretedBehaviour(ScriptProgram program) => _program = program;
