@@ -18,12 +18,12 @@ public sealed class ShaxViewport : GLSurfaceView
 {
     private readonly ViewportRenderer _renderer;
     private readonly global::Android.Views.ScaleGestureDetector _scaleDetector;
+    private readonly Es32OrEs30ContextFactory _contextFactory;
     private float _previousX, _previousY;
     private bool _wasScaling;
 
     public ShaxViewport(Context context, Scene scene, Entity cubeEntity, bool forceGles30 = false) : base(context)
     {
-        _forceGles30 = forceGles30;
         _renderer = new ViewportRenderer(scene, cubeEntity, forceGles30);
         _scaleDetector = new global::Android.Views.ScaleGestureDetector(context, new ScaleGestureListener { OnScaleAction = factor => QueueEvent(() => _renderer.Zoom(factor)) });
         SetEGLContextClientVersion(3);
