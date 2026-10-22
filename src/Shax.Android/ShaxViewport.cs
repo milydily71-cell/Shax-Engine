@@ -213,6 +213,11 @@ public sealed class ShaxViewport : GLSurfaceView
             NativeSetCamera(eyeX, eyeY, eyeZ);
             NativeSetMaterial(_roughness, _metallic);
             NativeDraw(_viewProjection, _inverseViewProjection, _cubeModel, time);
+            if (_importedAsset != null)
+            {
+                UpdateImportedSkin(deltaTime);
+                NativeDrawImported(_viewProjection, _cubeModel, _roughness, _metallic);
+            }
         }
 
         public void SetCameraMode(CameraMode mode) => _cameraMode = mode;
