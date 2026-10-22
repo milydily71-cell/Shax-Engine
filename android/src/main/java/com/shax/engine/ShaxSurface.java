@@ -33,7 +33,7 @@ final class ShaxSurface extends GLSurfaceView {
                 if (context != null && context != EGL10.EGL_NO_CONTEXT) return context;
                 context = tryContext(egl, display, config, 0);
                 if (context == null || context == EGL10.EGL_NO_CONTEXT) {
-                    throw new RuntimeException("Shax requires OpenGL ES 3.0 or newer.");
+                    throw new RuntimeException("Shax requires OpenGL ES 3.2 or OpenGL ES 3.0.");
                 }
                 return context;
             }
