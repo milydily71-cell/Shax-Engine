@@ -30,3 +30,11 @@ The C++ renderer draws a zenith sky gradient, grid, colored axes and a rotating 
 The editor includes a hierarchy/transform panel, a source editor with basic keyword/comment coloring, delimiter diagnostics, script save/load, scene JSON save/load, asset-browser placeholder, console, and position undo/redo. The Play action runs `CSharpSubsetRuntime`, an AOT-safe interpreter for a deliberately small C#-like behaviour subset: `Transform.Rotate(Vector3.UnitX/UnitY/UnitZ, speed * deltaTime)` and `LocalPosition`/`LocalScale` assignments. It does not compile arbitrary C# or load generated assemblies. File/network/reflection/process APIs and unrecognized statements are rejected; unsupported code gets diagnostics, and runtime exceptions stop that behaviour. This is a constrained interpreter, not full Roslyn compilation. Add new syntax only with sandbox and regression tests.
 
 CI verifies source tests, APK packaging and an emulator launch if its smoke-test job passes. It cannot claim physical-device verification; GLES 3.2 and GLES 3.0 devices, pause/resume and context-loss behavior still need hands-on testing.
+
+## Device graphics-path test
+
+Normal launch requests ES 3.2 first. To explicitly exercise the ES 3.0 path on a compatible test device, launch the app with the boolean intent extra:
+
+    adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER --ez shax.forceGles30 true
+
+Inspect Logcat for the `ShaxNative` line showing `OpenGL ES 3.0`. The app intentionally does not preserve the EGL context on pause, so background/resume recreates the context and renderer resources. This is a diagnostic path; a physical-device test is still required before claiming hardware verification.
