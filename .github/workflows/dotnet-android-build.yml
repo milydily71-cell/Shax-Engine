@@ -105,4 +105,5 @@ jobs:
             adb shell pidof com.shax.engine.dotnet
             adb logcat -d | grep -E 'Native libshax.so renderer initialized|ShaxNative|AOT-safe Shax C# subset compiled and running'
             COUNT="$(adb logcat -d | grep -c 'Native libshax.so renderer initialized' || true)"
-            test "$COUNT" -ge 2\n            adb logcat -d | grep -q "AOT-safe Shax C# subset compiled and running"
+            test "$COUNT" -ge 2
+            adb logcat -d | grep -q "AOT-safe Shax C# subset compiled and running"
