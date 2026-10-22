@@ -12,8 +12,8 @@
 namespace {
 GLuint sceneProgram = 0, pbrProgram = 0, skyProgram = 0, sceneVbo = 0, cubeVbo = 0, environmentCube = 0;
 GLint sceneMvp = -1, pbrMvp = -1, pbrModel = -1, pbrEnvironment = -1, pbrCamera = -1, pbrLight = -1, pbrRoughness = -1, pbrMetallic = -1;
+GLint skyTime = -1, skyInverseViewProjection = -1, skyCamera = -1;
 float cameraX = 0.0f, cameraY = 1.6f, cameraZ = 4.0f, materialRoughness = 0.28f, materialMetallic = 0.08f;
-GLint skyTime = -1;
 GLsizei gridCount = 0, cubeCount = 0;
 std::vector<float> sceneVertices, cubeVertices;
 constexpr float PI = 3.14159265358979323846f;
@@ -123,30 +123,50 @@ constexpr const char* skyVs = R"(#version 300 es
 out vec2 vUv;
 void main(){ vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2); vUv=p; gl_Position=vec4(p*2.0-1.0,1.0,1.0); })";
 constexpr const char* skyFs = R"(#version 300 es
-precision highp float; in vec2 vUv; uniform float uTime; out vec4 fragColor;
+precision highp float;
+in vec2 vUv;
+uniform float uTime;
+uniform mat4 uInverseViewProjection;
+uniform vec3 uCamera;
+out vec4 fragColor;
 float hash3(vec3 p){p=fract(p*0.1031);p+=dot(p,p.yxz+33.33);return fract((p.x+p.y)*p.z);}
-float noise3(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
+float noise3(vec3 p){
+ vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
  float a=hash3(i),b=hash3(i+vec3(1,0,0)),c=hash3(i+vec3(0,1,0)),d=hash3(i+vec3(1,1,0));
  float e=hash3(i+vec3(0,0,1)),f1=hash3(i+vec3(1,0,1)),g=hash3(i+vec3(0,1,1)),h=hash3(i+vec3(1,1,1));
- return mix(mix(mix(a,b,f.x),mix(c,d,f.x),f.y),mix(mix(e,f1,f.x),mix(g,h,f.x),f.y),f.z);}
+ return mix(mix(mix(a,b,f.x),mix(c,d,f.x),f.y),mix(mix(e,f1,f.x),mix(g,h,f.x),f.y),f.z);
+}
 void main(){
- float h=clamp(vUv.y,0.0,1.0);vec2 p=(vUv-0.5)*vec2(2.4,1.2);
- vec3 ray=normalize(vec3(p.x,h*1.35-0.18,1.0));
+ vec2 ndc=vUv*2.0-1.0;
+ vec4 farPoint=uInverseViewProjection*vec4(ndc,1.0,1.0);
+ vec3 worldPoint=farPoint.xyz/max(abs(farPoint.w),0.00001)*sign(farPoint.w);
+ vec3 ray=normalize(worldPoint-uCamera);
+ float h=clamp(ray.y*0.5+0.5,0.0,1.0);
  vec3 horizon=vec3(0.69,0.82,0.98),zenith=vec3(0.018,0.055,0.19);
  vec3 sky=mix(horizon,zenith,pow(h,0.78));
- sky+=vec3(0.16,0.25,0.36)*exp(-pow((h-0.16)*7.0,2.0));
- float sun=pow(max(dot(ray,normalize(vec3(-0.35,0.55,0.75))),0.0),360.0);sky+=vec3(1.0,0.84,0.58)*sun*2.4;
- // Fixed 12-step bounded ray march approximates participating-media clouds on ES 3.0/3.2.
- vec3 accumulated=vec3(0.0);float transmittance=1.0;
- for(int i=0;i<12;i++){float t=(float(i)+0.5)/12.0;
-  vec3 q=ray*(2.0+t*7.0)+vec3(0.0,uTime*0.012,0.0);
-  float cloudBand=exp(-pow((h-0.36)*5.0,2.0));
-  float density=smoothstep(0.58,0.82,noise3(q*2.0))*cloudBand*0.085;
-  float alpha=1.0-exp(-density);
-  accumulated+=transmittance*alpha*mix(vec3(0.23,0.34,0.52),vec3(0.92,0.95,1.0),max(ray.y,0.0));
-  transmittance*=1.0-alpha;
+ sky+=vec3(0.16,0.25,0.36)*exp(-pow(ray.y*7.0,2.0));
+ vec3 sunDirection=normalize(vec3(-0.35,0.55,0.75));
+ float sunDisc=pow(max(dot(ray,sunDirection),0.0),420.0);
+ float sunHalo=pow(max(dot(ray,sunDirection),0.0),18.0);
+ sky+=vec3(1.0,0.84,0.58)*(sunDisc*3.0+sunHalo*0.24);
+ // Clouds are sampled in world-direction space, not screen UV space, so camera orbit does not drag them.
+ float cloudHeight=0.14;
+ float cloudBand=smoothstep(-0.04,0.05,ray.y)* (1.0-smoothstep(0.34,0.48,ray.y));
+ vec2 cloudUv=ray.xz/max(ray.y+0.22,0.16);
+ cloudUv=cloudUv*1.65+vec2(uTime*0.006,-uTime*0.003);
+ float coverage=0.0, detail=0.0;
+ for(int i=0;i<4;i++){
+   float scale=1.0+float(i)*1.73;
+   float weight=1.0/(1.0+float(i)*0.9);
+   coverage+=noise3(vec3(cloudUv*scale,cloudHeight+float(i)*0.13))*weight;
+   detail+=weight;
  }
- sky=sky*transmittance+accumulated;fragColor=vec4(sky,1.0);
+ coverage/=detail;
+ float density=smoothstep(0.49,0.69,coverage)*cloudBand;
+ float silverLining=pow(max(dot(ray,sunDirection),0.0),5.0)*0.18;
+ vec3 cloudColor=mix(vec3(0.37,0.46,0.60),vec3(0.96,0.98,1.0),clamp(ray.y*2.0+0.4,0.0,1.0))+silverLining;
+ sky=mix(sky,cloudColor,clamp(density*0.9,0.0,0.92));
+ fragColor=vec4(max(sky,vec3(0.0)),1.0);
 })";
 
 void buildEnvironment() {
@@ -212,7 +232,7 @@ extern "C" __attribute__((visibility("default"))) int shax_init() {
     pbrMvp=glGetUniformLocation(pbrProgram,"uMvp"); pbrModel=glGetUniformLocation(pbrProgram,"uModel");
     pbrEnvironment=glGetUniformLocation(pbrProgram,"uEnvironment"); pbrCamera=glGetUniformLocation(pbrProgram,"uCamera"); pbrLight=glGetUniformLocation(pbrProgram,"uLightDirection");
     pbrRoughness=glGetUniformLocation(pbrProgram,"uRoughness"); pbrMetallic=glGetUniformLocation(pbrProgram,"uMetallic");
-    skyTime=glGetUniformLocation(skyProgram,"uTime");
+    skyTime=glGetUniformLocation(skyProgram,"uTime"); skyInverseViewProjection=glGetUniformLocation(skyProgram,"uInverseViewProjection"); skyCamera=glGetUniformLocation(skyProgram,"uCamera");
     buildGeometry(); buildPbrCube(); buildEnvironment();
     if (!sceneVbo) glGenBuffers(1,&sceneVbo);
     glBindBuffer(GL_ARRAY_BUFFER,sceneVbo);
@@ -231,14 +251,17 @@ extern "C" __attribute__((visibility("default"))) void shax_resize(int width,int
     glViewport(0,0,width>0?width:1,height>0?height:1);
 }
 extern "C" __attribute__((visibility("default"))) void shax_draw(const float* viewProjection,
+                                                                    const float* inverseViewProjection,
                                                                     const float* cubeModel,
                                                                     float timeSeconds) {
-    if (!sceneProgram || !skyProgram || !viewProjection) return;
+    if (!sceneProgram || !skyProgram || !viewProjection || !inverseViewProjection) return;
     const auto cpuStart = std::chrono::steady_clock::now();
     glClearColor(0.03f,0.05f,0.09f,1.0f);
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST); glUseProgram(skyProgram);
     if (skyTime>=0) glUniform1f(skyTime,timeSeconds);
+    if (skyInverseViewProjection>=0) glUniformMatrix4fv(skyInverseViewProjection,1,GL_FALSE,inverseViewProjection);
+    if (skyCamera>=0) glUniform3f(skyCamera,cameraX,cameraY,cameraZ);
     glDrawArrays(GL_TRIANGLES,0,3); glEnable(GL_DEPTH_TEST);
     glUseProgram(sceneProgram);
     glBindBuffer(GL_ARRAY_BUFFER,sceneVbo);
