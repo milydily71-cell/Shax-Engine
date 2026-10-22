@@ -133,7 +133,7 @@ public sealed class MainActivity : Activity
         scaleRow.AddView(_scaleZ, new LinearLayout.LayoutParams(0, -2, 1));
         _hierarchyPanel.AddView(scaleRow);
         AddAction(_hierarchyPanel, "Apply Transform", ApplyTransform);
-        _workspace.AddView(_hierarchyPanel, new FrameLayout.LayoutParams(-1, 260, GravityFlags.Bottom));
+        _workspace.AddView(_hierarchyPanel, new FrameLayout.LayoutParams(-1, 420, GravityFlags.Bottom));
         _hierarchyPanel.Visibility = ViewStates.Gone;
 
         _assetPanel = Label("ASSET BROWSER\n\nScripts/\n  PlayerScript.cs\n\nScenes/\n  MainScene.shax.json\n\nTextures/\n  Image import pending\n\nModels/\n  GLB/glTF importer pending", 14, false);
@@ -261,7 +261,7 @@ public sealed class MainActivity : Activity
         if (_positionZ != null) _positionZ.Text = _cubeEntity.Transform.LocalPosition.Z.ToString("0.###");
         var euler = _cubeEntity.Transform.LocalRotation;
         if (_rotationX != null) _rotationX.Text = (MathF.Atan2(2f * (euler.W * euler.X + euler.Y * euler.Z), 1f - 2f * (euler.X * euler.X + euler.Y * euler.Y)) * 180f / MathF.PI).ToString("0.###");
-        if (_rotationY != null) _rotationY.Text = MathF.Asin(Math.Clamp(2f * (euler.W * euler.Y - euler.Z * euler.X), -1f, 1f)) .ToString("0.###");
+        if (_rotationY != null) _rotationY.Text = (MathF.Asin(Math.Clamp(2f * (euler.W * euler.Y - euler.Z * euler.X), -1f, 1f)) * 180f / MathF.PI).ToString("0.###");
         if (_rotationZ != null) _rotationZ.Text = (MathF.Atan2(2f * (euler.W * euler.Z + euler.X * euler.Y), 1f - 2f * (euler.Y * euler.Y + euler.Z * euler.Z)) * 180f / MathF.PI).ToString("0.###");
         if (_scaleX != null) _scaleX.Text = _cubeEntity.Transform.LocalScale.X.ToString("0.###");
         if (_scaleY != null) _scaleY.Text = _cubeEntity.Transform.LocalScale.Y.ToString("0.###");
