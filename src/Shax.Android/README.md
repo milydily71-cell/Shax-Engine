@@ -1,19 +1,32 @@
 # Shax .NET 10 Android host
 
-This SDK-style net10.0-android app references Shax.Core directly, so the C# API is packaged into the Android app rather than remaining disconnected source.
+This app targets .NET 10 Android and references Shax.Core directly. It loads the C++ renderer from `libshax.so` through P/Invoke; the shared library must be packaged for each target ABI.
 
-## Build
+## Reproducible CI build
 
-Install the .NET 10 SDK and Android workload, then run from the repository root:
+The workflow pins .NET SDK 10.0.100, Java 17, Android platform/build tools 35, NDK 27.2.12479018, and CMake 3.22.1. It builds native libraries for arm64-v8a and x86_64, runs core tests, publishes the APK, verifies both native libraries are present, emits SHA-256 metadata, and attempts an Android emulator launch.
 
-    dotnet workload install android
+Download the `shax-engine-net10-native-apk` artifact from a successful GitHub Actions run. The checksum is provided as `SHA256SUMS.txt`.
+
+## Local build
+
+Install .NET SDK 10.0.100, Java 17, Android SDK platform/build tools 35, NDK 27.2.12479018 and CMake 3.22.1.
+
+    cmake -S native -B native/build/arm64-v8a -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DCMAKE_BUILD_TYPE=Release
+    cmake --build native/build/arm64-v8a
+    mkdir -p src/Shax.Android/native-libs/arm64-v8a
+    cp native/build/arm64-v8a/libshax.so src/Shax.Android/native-libs/arm64-v8a/
+    dotnet restore tests/Shax.Core.Tests/Shax.Core.Tests.csproj
+    dotnet test tests/Shax.Core.Tests/Shax.Core.Tests.csproj -c Release
     dotnet restore src/Shax.Android/Shax.Android.csproj
     dotnet publish src/Shax.Android/Shax.Android.csproj -c Release -f net10.0-android -p:AndroidPackageFormat=apk
 
-The publish output reports the resulting artifact location.
+For x86_64, repeat the CMake build with `-DANDROID_ABI=x86_64` and place the library under `native-libs/x86_64`.
 
-## Current state
+## Current state and honest limits
 
-The app shell has Scene, Script IDE, and Play controls, and the Android project references the engine-neutral C# core. The script editor is a source buffer only: dynamic compilation, diagnostics integration, project save/load, and safe assembly loading are not implemented yet.
+The C++ renderer draws a zenith sky gradient, grid, colored axes and a rotating cube. The C# viewport requests GLES 3.2 first and falls back directly to GLES 3.0; there is no GLES 3.1 fallback. Orbit and pinch zoom are implemented in the .NET host. The C# scene entity transform drives the rendered cube.
 
-The .NET viewport explicitly attempts an OpenGL ES 3.2 EGL context, then 3.1 and 3.0. The current shader and drawing code uses GLES 3.0-compatible APIs, and advanced ES 3.2 rendering features are not implemented yet. Build and device verification remain pending.
+The editor includes a hierarchy/transform panel, a source editor with basic keyword/comment coloring, delimiter diagnostics, script save/load, scene JSON save/load, asset-browser placeholder, console, and position undo/redo. The C# compiler/runtime for arbitrary editor-authored scripts is not enabled: .NET Android AOT restrictions mean that needs a separately designed and tested execution model. The visible cube behaviour is a compiled-in C# behaviour, not proof of runtime compilation of the edited source.
+
+CI verifies source tests, APK packaging and an emulator launch if its smoke-test job passes. It cannot claim physical-device verification; GLES 3.2 and GLES 3.0 devices, pause/resume and context-loss behavior still need hands-on testing.
