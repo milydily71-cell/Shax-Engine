@@ -112,6 +112,10 @@ public sealed class ShaxViewport : GLSurfaceView
         private static extern void NativeSetSkinMatrices([In] float[] matrices, int jointCount);
         [DllImport("shax", EntryPoint = "shax_clear_imported_mesh")]
         private static extern void NativeClearImportedMesh();
+        [DllImport("shax", EntryPoint = "shax_upload_base_color_texture")]
+        private static extern int NativeUploadBaseColorTexture([In] byte[] rgba, int width, int height);
+        [DllImport("shax", EntryPoint = "shax_clear_base_color_texture")]
+        private static extern void NativeClearBaseColorTexture();
         [DllImport("shax", EntryPoint = "shax_draw_imported")]
         private static extern void NativeDrawImported([In] float[] viewProjection, [In] float[] model, float roughness, float metallic);
 
@@ -241,6 +245,7 @@ public sealed class ShaxViewport : GLSurfaceView
         {
             var primitives = asset.Meshes.SelectMany(m => m.Primitives).Where(p => p.Positions.Length > 0).ToArray();
             if (primitives.Length == 0) { NativeClearImportedMesh(); return; }
+            NativeClearBaseColorTexture();
             var vertices = new List<float>();
             var indices = new List<uint>();
             _hasSkinWeights = asset.Skins.Count > 0 && primitives.Any(p => p.Joints0.Length == p.VertexCount && p.Weights0.Length == p.VertexCount);
@@ -251,16 +256,17 @@ public sealed class ShaxViewport : GLSurfaceView
                 var normals = primitive.Normals.Length == primitive.VertexCount ? primitive.Normals : GenerateNormals(primitive.Positions, triangleIndices);
                 var material = (uint)primitive.MaterialIndex < (uint)asset.Materials.Count ? asset.Materials[primitive.MaterialIndex] : null;
                 var color = material?.BaseColor ?? new Vector4(0.65f, 0.72f, 0.82f, 1f);
-                var vertexBase = (uint)(vertices.Count / 17);
+                var vertexBase = (uint)(vertices.Count / 19);
                 for (var i = 0; i < primitive.VertexCount; i++)
                 {
                     var p = primitive.Positions[i];
                     var n = normals[i];
                     var j = primitive.Joints0.Length == primitive.VertexCount ? primitive.Joints0[i] : Vector4.Zero;
                     var w = primitive.Weights0.Length == primitive.VertexCount ? primitive.Weights0[i] : Vector4.Zero;
+                    var uv = primitive.TexCoords0.Length == primitive.VertexCount ? primitive.TexCoords0[i] : Vector2.Zero;
                     var sum = w.X + w.Y + w.Z + w.W;
                     if (sum > 1e-6f) w /= sum;
-                    vertices.AddRange(new[] { p.X,p.Y,p.Z,n.X,n.Y,n.Z,color.X,color.Y,color.Z,j.X,j.Y,j.Z,j.W,w.X,w.Y,w.Z,w.W });
+                    vertices.AddRange(new[] { p.X,p.Y,p.Z,n.X,n.Y,n.Z,color.X,color.Y,color.Z,j.X,j.Y,j.Z,j.W,w.X,w.Y,w.Z,w.W,uv.X,uv.Y });
                 }
                 foreach (var index in triangleIndices)
                 {
@@ -269,11 +275,12 @@ public sealed class ShaxViewport : GLSurfaceView
                 }
             }
             if (vertices.Count == 0 || indices.Count == 0) { NativeClearImportedMesh(); return; }
-            var uploaded = NativeUploadMesh(vertices.ToArray(), vertices.Count / 17, indices.ToArray(), indices.Count);
+            var uploaded = NativeUploadMesh(vertices.ToArray(), vertices.Count / 19, indices.ToArray(), indices.Count);
             if (uploaded == 0) throw new InvalidOperationException("Native GPU upload rejected the imported GLB mesh.");
             if (_hasSkinWeights) UpdateImportedSkin(0);
             else NativeSetSkinMatrices(Array.Empty<float>(), 0);
-            global::Android.Util.Log.Info("ShaxEngine", $"Uploaded GLB geometry: {vertices.Count / 17} vertices, {indices.Count / 3} triangles.");
+            UploadFirstBaseColorTexture(asset);
+            global::Android.Util.Log.Info("ShaxEngine", $"Uploaded GLB geometry: {vertices.Count / 19} vertices, {indices.Count / 3} triangles.");
         }
 
         private void UpdateImportedSkin(float deltaTime)
