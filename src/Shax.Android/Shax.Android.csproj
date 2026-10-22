@@ -5,8 +5,8 @@
     <RootNamespace>Shax.Android</RootNamespace>
     <ApplicationId>com.shax.engine.dotnet</ApplicationId>
     <ApplicationTitle>Shax Engine</ApplicationTitle>
-    <ApplicationVersion>2</ApplicationVersion>
-    <ApplicationDisplayVersion>0.2.0</ApplicationDisplayVersion>
+    <ApplicationVersion>3</ApplicationVersion>
+    <ApplicationDisplayVersion>0.3.0</ApplicationDisplayVersion>
     <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
     <TargetSdkVersion>35</TargetSdkVersion>
     <Nullable>enable</Nullable>
@@ -14,5 +14,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Shax.Core/Shax.Core.csproj" />
+    <AndroidNativeLibrary Include="native-libs/arm64-v8a/libshax.so" Abi="arm64-v8a" />
+    <AndroidNativeLibrary Include="native-libs/x86_64/libshax.so" Abi="x86_64" />
   </ItemGroup>
 </Project>
