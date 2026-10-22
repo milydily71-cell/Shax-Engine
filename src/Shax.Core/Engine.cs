@@ -30,7 +30,7 @@ namespace ShaxEngine
     public sealed class Scene : Shax.Scene
     {
         public Scene(string name = "Scene") : base(name) { }
-        public override Shax.Entity CreateEntity(string name = "Entity")
+        public override Entity CreateEntity(string name = "Entity")
         {
             var entity = new Entity(name);
             RegisterEntity(entity);
