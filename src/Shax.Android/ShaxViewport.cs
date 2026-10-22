@@ -38,7 +38,7 @@ public sealed class ShaxViewport : GLSurfaceView
     {
         if (e is null) return false;
         _scaleDetector.OnTouchEvent(e);
-        var x = e.GetX(), y = e.GetY();
+        float x = e.GetX(), y = e.GetY();
         if (e.ActionMasked == MotionEventActions.Move && e.PointerCount == 1 && !_scaleDetector.IsInProgress)
         {
             var dx = x - _previousX; var dy = y - _previousY;
