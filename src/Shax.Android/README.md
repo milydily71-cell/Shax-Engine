@@ -16,4 +16,4 @@ The publish output reports the resulting artifact location.
 
 The app shell has Scene, Script IDE, and Play controls, and the Android project references the engine-neutral C# core. The script editor is a source buffer only: dynamic compilation, diagnostics integration, project save/load, and safe assembly loading are not implemented yet.
 
-The viewport currently requests an OpenGL ES 3 context and uses GLES 3.0 calls. It logs the actual driver version, but does not yet explicitly request an ES 3.2 EGL context. Build and device verification remain pending.
+The .NET viewport explicitly attempts an OpenGL ES 3.2 EGL context, then 3.1 and 3.0. The current shader and drawing code uses GLES 3.0-compatible APIs, and advanced ES 3.2 rendering features are not implemented yet. Build and device verification remain pending.
