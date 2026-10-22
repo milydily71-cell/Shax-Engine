@@ -54,7 +54,7 @@ public sealed class CameraComponent : IEntityComponent
 
     public Matrix4x4 GetProjectionMatrix(float aspectRatio)
     {
-        if (aspectRatio <= 0 || !float.IsFinite(aspectRatio)) throw new ArgumentOutOfRangeException(nameof(aspectRatio));
+        if (aspectRatio <= 0 || float.IsNaN(aspectRatio) || float.IsInfinity(aspectRatio)) throw new ArgumentOutOfRangeException(nameof(aspectRatio));
         return Matrix4x4.CreatePerspectiveFieldOfView(MathUtil.DegreesToRadians(Math.Clamp(FieldOfViewDegrees, 10, 120)),
             aspectRatio, MathF.Max(0.001f, NearClip), MathF.Max(NearClip + 0.001f, FarClip));
     }
