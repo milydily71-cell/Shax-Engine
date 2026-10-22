@@ -63,6 +63,7 @@ public sealed class MainActivity : Activity
         AddAction(toolbar, "Undo", UndoTransform);
         AddAction(toolbar, "Redo", RedoTransform);
         AddAction(toolbar, "Play", CompileAndPlay);
+        AddAction(toolbar, "Stop", StopScript);
         toolbarScroll.AddView(toolbar);
         _root.AddView(toolbarScroll, new LinearLayout.LayoutParams(-1, -2));
 
@@ -200,6 +201,12 @@ public sealed class MainActivity : Activity
         if (_cubeEntity is null || _redo.Count == 0) { SetStatus("Nothing to redo."); return; }
         _undo.Push(_cubeEntity.Transform.LocalPosition);
         _cubeEntity.Transform.LocalPosition = _redo.Pop(); RefreshInspector();
+    }
+
+    private void StopScript()
+    {
+        if (_runtimeScript != null) _runtimeScript.Program = null;
+        SetStatus("Script stopped.");
     }
 
     private void CompileAndPlay()
