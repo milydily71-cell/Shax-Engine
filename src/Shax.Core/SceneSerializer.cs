@@ -58,7 +58,7 @@ public static class SceneSerializer
             var p = ReadVector(item.Position, 3, "position");
             entity.Transform.LocalPosition = new Vector3(p[0], p[1], p[2]);
             var q = ReadVector(item.Rotation, 4, "rotation");
-            entity.Transform.LocalRotation = Quaternion.Normalize(new Quaternion(q[0], q[1], q[2], q[3]));
+            var rotation = new Quaternion(q[0], q[1], q[2], q[3]);\n            if (rotation.LengthSquared() < 1e-8f) throw new FormatException("Invalid zero rotation quaternion.");\n            entity.Transform.LocalRotation = Quaternion.Normalize(rotation);
             var scale = ReadVector(item.Scale, 3, "scale");
             entity.Transform.LocalScale = new Vector3(scale[0], scale[1], scale[2]);
             scene.AddEntity(entity);
