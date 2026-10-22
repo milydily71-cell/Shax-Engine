@@ -1,6 +1,8 @@
 #include <GLES3/gl3.h>
 #include <android/log.h>
 #include <array>
+#include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -119,16 +121,30 @@ constexpr const char* skyVs = R"(#version 300 es
 out vec2 vUv;
 void main(){ vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2); vUv=p; gl_Position=vec4(p*2.0-1.0,1.0,1.0); })";
 constexpr const char* skyFs = R"(#version 300 es
-precision highp float;
-in vec2 vUv; uniform float uTime; out vec4 fragColor;
+precision highp float; in vec2 vUv; uniform float uTime; out vec4 fragColor;
+float hash3(vec3 p){p=fract(p*0.1031);p+=dot(p,p.yxz+33.33);return fract((p.x+p.y)*p.z);}
+float noise3(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
+ float a=hash3(i),b=hash3(i+vec3(1,0,0)),c=hash3(i+vec3(0,1,0)),d=hash3(i+vec3(1,1,0));
+ float e=hash3(i+vec3(0,0,1)),f1=hash3(i+vec3(1,0,1)),g=hash3(i+vec3(0,1,1)),h=hash3(i+vec3(1,1,1));
+ return mix(mix(mix(a,b,f.x),mix(c,d,f.x),f.y),mix(mix(e,f1,f.x),mix(g,h,f.x),f.y),f.z);}
 void main(){
-  float h=clamp(vUv.y,0.0,1.0);
-  vec3 horizon=vec3(0.72,0.84,0.98);
-  vec3 zenith=vec3(0.025,0.075,0.22);
-  vec3 sky=mix(horizon,zenith,pow(h,0.78));
-  float glow=exp(-pow((h-0.16)*7.0,2.0))*0.12;
-  sky+=vec3(0.16,0.25,0.36)*glow;
-  fragColor=vec4(sky,1.0);
+ float h=clamp(vUv.y,0.0,1.0);vec2 p=(vUv-0.5)*vec2(2.4,1.2);
+ vec3 ray=normalize(vec3(p.x,h*1.35-0.18,1.0));
+ vec3 horizon=vec3(0.69,0.82,0.98),zenith=vec3(0.018,0.055,0.19);
+ vec3 sky=mix(horizon,zenith,pow(h,0.78));
+ sky+=vec3(0.16,0.25,0.36)*exp(-pow((h-0.16)*7.0,2.0));
+ float sun=pow(max(dot(ray,normalize(vec3(-0.35,0.55,0.75))),0.0),360.0);sky+=vec3(1.0,0.84,0.58)*sun*2.4;
+ // Fixed 12-step bounded ray march approximates participating-media clouds on ES 3.0/3.2.
+ vec3 accumulated=vec3(0.0);float transmittance=1.0;
+ for(int i=0;i<12;i++){float t=(float(i)+0.5)/12.0;
+  vec3 q=ray*(2.0+t*7.0)+vec3(0.0,uTime*0.012,0.0);
+  float cloudBand=exp(-pow((h-0.36)*5.0,2.0));
+  float density=smoothstep(0.58,0.82,noise3(q*2.0))*cloudBand*0.085;
+  float alpha=1.0-exp(-density);
+  accumulated+=transmittance*alpha*mix(vec3(0.23,0.34,0.52),vec3(0.92,0.95,1.0),max(ray.y,0.0));
+  transmittance*=1.0-alpha;
+ }
+ sky=sky*transmittance+accumulated;fragColor=vec4(sky,1.0);
 })";
 
 void buildEnvironment() {
