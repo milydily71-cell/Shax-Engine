@@ -48,11 +48,11 @@ public readonly struct RenderCapabilities
 
     public RenderCapabilities(int major, int minor)
     {
-        if (major < 3 || (major == 3 && minor != 0 && minor != 1 && minor != 2))
-            throw new ArgumentOutOfRangeException(nameof(major), "Shax supports GLES 3.0, 3.1 and 3.2 contexts; the host currently selects 3.2 or 3.0.");
+        if (major != 3 || (minor != 0 && minor != 2))
+            throw new ArgumentOutOfRangeException(nameof(major), "Shax only accepts GLES 3.2 or GLES 3.0; GLES 3.1 is deliberately rejected.");
         Major = major; Minor = minor;
         SupportsGles32 = major > 3 || (major == 3 && minor >= 2);
-        SupportsComputeShaders = major > 3 || (major == 3 && minor >= 1);
+        SupportsComputeShaders = SupportsGles32;
         SupportsGeometryShaders = SupportsGles32;
     }
 
