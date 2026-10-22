@@ -33,13 +33,13 @@ public abstract class Collider : IEntityComponent
     }
 }
 
-public sealed class BoxCollider : Collider
+public class BoxCollider : Collider
 {
     public Vector3 Size { get; set; } = Vector3.One;
     public override Vector3 HalfExtents => Vector3.Max(Vector3.Abs(Size) * 0.5f, new Vector3(0.001f));
 }
 
-public sealed class SphereCollider : Collider
+public class SphereCollider : Collider
 {
     public float Radius { get; set; } = 0.5f;
     public override Vector3 HalfExtents
@@ -52,7 +52,7 @@ public sealed class SphereCollider : Collider
     }
 }
 
-public sealed class Rigidbody : IEntityComponent
+public class Rigidbody : IEntityComponent
 {
     public Entity? Entity { get; private set; }
     public Vector3 Velocity { get; set; }
@@ -67,7 +67,7 @@ public sealed class Rigidbody : IEntityComponent
     public void OnAttached(Entity entity) => Entity = entity ?? throw new ArgumentNullException(nameof(entity));
 }
 
-public sealed class CharacterController : IEntityComponent
+public class CharacterController : IEntityComponent
 {
     public Entity? Entity { get; private set; }
     public float Radius { get; set; } = 0.35f;
@@ -103,7 +103,7 @@ internal readonly record struct Bounds3(Vector3 Center, Vector3 Extents)
 }
 
 /// <summary>Deterministic fixed-step AABB collision and gravity simulation for mobile prototypes.</summary>
-public sealed class PhysicsWorld
+public class PhysicsWorld
 {
     private readonly HashSet<(Guid A, Guid B)> _activePairs = new();
     public Vector3 Gravity { get; set; } = new(0, -9.81f, 0);
