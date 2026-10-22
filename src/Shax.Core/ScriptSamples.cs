@@ -31,6 +31,16 @@ public sealed class PlayerScript : ShaxBehaviour
         Transform.Rotate(Vector3.UnitX, 30f * deltaTime);
     }
 }",
+            ["Move player forward"] = @"using Shax;
+using System.Numerics;
+
+public sealed class PlayerScript : ShaxBehaviour
+{
+    public override void Update(float deltaTime)
+    {
+        Transform.Translate(Vector3.UnitZ, 3f * deltaTime);
+    }
+}",
             ["Set cube position"] = @"using Shax;
 using System.Numerics;
 
