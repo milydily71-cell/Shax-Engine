@@ -38,6 +38,7 @@ public sealed class ShaxViewport : GLSurfaceView
     }
 
     public void SetMaterial(float roughness, float metallic) => QueueEvent(() => _renderer.SetMaterial(roughness, metallic));
+    public void SetDemoCubeVisible(bool visible) => QueueEvent(() => ViewportRenderer.NativeSetDemoCubeVisible(visible));
     public void SetCameraMode(CameraMode mode) => QueueEvent(() => _renderer.SetCameraMode(mode));
     public void SetImportedAsset(GltfAsset asset) => QueueEvent(() => _renderer.SetImportedAsset(asset));
     public void ClearImportedAsset() => QueueEvent(_renderer.ClearImportedAsset);
@@ -101,6 +102,8 @@ public sealed class ShaxViewport : GLSurfaceView
         private static extern void NativeResize(int width, int height);
         [DllImport("shax", EntryPoint = "shax_set_camera")]
         private static extern void NativeSetCamera(float x, float y, float z);
+        [DllImport("shax", EntryPoint = "shax_set_demo_cube_visible")]
+        internal static extern void NativeSetDemoCubeVisible(bool visible);
         [DllImport("shax", EntryPoint = "shax_set_material")]
         private static extern void NativeSetMaterial(float roughness, float metallic);
         [DllImport("shax", EntryPoint = "shax_draw")]
