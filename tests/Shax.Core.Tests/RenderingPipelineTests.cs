@@ -88,6 +88,17 @@ public sealed class RenderingPipelineTests
         finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
     }
 
+    [Fact]
+    public void BuiltInScriptIdeExamplesCompileInTheAotSafeSubset()
+    {
+        Assert.NotEmpty(ScriptSamples.All);
+        foreach (var example in ScriptSamples.All)
+        {
+            var result = CSharpSubsetRuntime.Compile(example.Value);
+            Assert.True(result.Success, example.Key + ": " + string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        }
+    }
+
     private sealed class TestResource : IDisposable
     {
         public static bool LastDisposed { get; private set; }
