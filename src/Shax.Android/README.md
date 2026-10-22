@@ -12,7 +12,7 @@ Download the `shax-engine-net10-native-apk` artifact from a successful GitHub Ac
 
 Install .NET SDK 10.0.100, Java 17, Android SDK platform/build tools 35, NDK 27.2.12479018 and CMake 3.22.1.
 
-    cmake -S native -B native/build/arm64-v8a -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DCMAKE_BUILD_TYPE=Release
+    cmake -S native -B native/build/arm64-v8a -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON -DCMAKE_BUILD_TYPE=Release
     cmake --build native/build/arm64-v8a
     mkdir -p src/Shax.Android/native-libs/arm64-v8a
     cp native/build/arm64-v8a/libshax.so src/Shax.Android/native-libs/arm64-v8a/
