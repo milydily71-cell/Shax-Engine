@@ -48,6 +48,7 @@ public sealed class MainActivity : Activity
     private string _currentScriptName = "PlayerScript.cs";
     private Button? _scriptProjectButton;
     private readonly PbrMaterialSettings _materialSettings = new();
+    private GltfAsset? _importedAsset;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -322,6 +323,7 @@ public sealed class MainActivity : Activity
         _runtimeScript = null;
         _viewport = new ShaxViewport(this, _scene, _cubeEntity, _forceGles30);
         _viewport.SetMaterial(_materialSettings.Roughness, _materialSettings.Metallic);
+        if (_importedAsset != null) _viewport.SetImportedAsset(_importedAsset);
         _workspace?.AddView(_viewport, new FrameLayout.LayoutParams(-1, -1));
         _viewport.OnResume();
         RefreshInspector();
@@ -365,6 +367,8 @@ public sealed class MainActivity : Activity
             }
             var imported = GlbAssetImporter.Import(staging, Path.Combine(FilesDir!.AbsolutePath, "Assets"));
             var decoded = GltfAssetDecoder.DecodeFile(staging);
+            _importedAsset = decoded;
+            _viewport?.SetImportedAsset(decoded);
             var vertices = decoded.Meshes.SelectMany(m => m.Primitives).Sum(p => p.VertexCount);
             var triangles = decoded.Meshes.SelectMany(m => m.Primitives).Sum(p => p.TriangleCount);
             var jointCount = decoded.Skins.Sum(s => s.Joints.Length);
