@@ -31,7 +31,7 @@ public static class SceneSerializer
 
     public static string Serialize(Scene scene)
     {
-        ArgumentNullException.ThrowIfNull(scene);
+        if (scene is null) throw new ArgumentNullException(nameof(scene));
         var dto = new SceneDto { Name = scene.Name };
         dto.Entities = scene.Entities.Select(e => new EntityDto
         {
@@ -55,10 +55,12 @@ public static class SceneSerializer
             if (item.Id == Guid.Empty || entities.ContainsKey(item.Id))
                 throw new FormatException("Scene entity IDs must be unique, non-empty GUIDs.");
             var entity = new Entity(item.Name, item.Id) { Active = item.Active };
-            entity.Transform.LocalPosition = Vector(item.Position, 3, "position");
-            var q = Vector(item.Rotation, 4, "rotation");
+            var p = ReadVector(item.Position, 3, "position");
+            entity.Transform.LocalPosition = new Vector3(p[0], p[1], p[2]);
+            var q = ReadVector(item.Rotation, 4, "rotation");
             entity.Transform.LocalRotation = Quaternion.Normalize(new Quaternion(q[0], q[1], q[2], q[3]));
-            entity.Transform.LocalScale = Vector(item.Scale, 3, "scale");
+            var scale = ReadVector(item.Scale, 3, "scale");
+            entity.Transform.LocalScale = new Vector3(scale[0], scale[1], scale[2]);
             scene.AddEntity(entity);
             entities.Add(item.Id, entity);
         }
@@ -74,12 +76,10 @@ public static class SceneSerializer
         return scene;
     }
 
-    private static Vector3 Vector(float[] values, int count, string label)
+    private static float[] ReadVector(float[]? values, int count, string label)
     {
-        if (values == null || values.Length != count || values.Any(v => float.IsNaN(v) || float.IsInfinity(v)))
+        if (values is null || values.Length != count || values.Any(v => float.IsNaN(v) || float.IsInfinity(v)))
             throw new FormatException($"Invalid {label} vector.");
-        return new Vector3(values[0], values[1], values[2]);
+        return values;
     }
-
-    private static float[] Vector(float[] values, int count, string label, bool unused = false) => values;
 }
