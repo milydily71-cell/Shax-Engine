@@ -7,9 +7,9 @@ using Shax;
 namespace Shax.Android;
 
 [Activity(Label = "Shax Engine", MainLauncher = true, Exported = true,
-    ConfigurationChanges = Android.Content.PM.ConfigChanges.Orientation |
-                           Android.Content.PM.ConfigChanges.ScreenSize |
-                           Android.Content.PM.ConfigChanges.KeyboardHidden)]
+    ConfigurationChanges = global::Android.Content.PM.ConfigChanges.Orientation |
+                           global::Android.Content.PM.ConfigChanges.ScreenSize |
+                           global::Android.Content.PM.ConfigChanges.KeyboardHidden)]
 public sealed class MainActivity : Activity
 {
     private LinearLayout? _root;
