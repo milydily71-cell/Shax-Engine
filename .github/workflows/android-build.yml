@@ -1,0 +1,29 @@
+name: Android build
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  debug-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Build debug APK
+        run: gradle --no-daemon :android:assembleDebug
+      - name: Verify APK exists
+        run: test -s android/build/outputs/apk/debug/android-debug.apk || find android/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit | grep -q .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shax-engine-debug-apk
+          path: android/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
