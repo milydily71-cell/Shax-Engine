@@ -1,6 +1,6 @@
 # Shax Engine roadmap
 
-A checked box means the source implementation exists; build/device verification is tracked separately and must not be inferred from source alone.
+A checked box means the source implementation exists. Build/device verification is tracked separately and must not be inferred from source alone.
 
 ## Milestone 0 — reproducible foundation
 - [x] C# core multi-targets .NET Standard 2.1 and .NET 10
@@ -8,12 +8,12 @@ A checked box means the source implementation exists; build/device verification 
 - [x] C++20 native renderer source and CMake build for Android ABIs
 - [x] P/Invoke bridge and ABI-specific `libshax.so` packaging rules
 - [x] Pinned .NET/Java/NDK/CMake/Android SDK workflow and APK checksum metadata
-- [x] Core tests for transform hierarchy, scene JSON and behaviour ticks
+- [x] Core tests for transform hierarchy, scene JSON, behaviour ticks and script sandbox
 - [ ] Successful CI build, artifact inspection and emulator smoke test on current commit
 
 ## Milestone 1 — mobile viewport
 - [x] C++ native renderer with zenith sky gradient and colored grid axes
-- [x] Perspective cube rendering driven by C# scene transform
+- [x] Perspective cube rendering driven by the C# scene transform
 - [x] GLES 3.2 requested first, direct fallback to GLES 3.0 only
 - [x] One-finger orbit and pinch zoom in the .NET Android host
 - [x] Native GPU resources recreated from surface-created callback
@@ -28,20 +28,22 @@ A checked box means the source implementation exists; build/device verification 
 - [x] Camera, light, material and mesh-renderer API contracts
 - [x] Explicit ownership flags for renderer resources
 - [x] Stable entity IDs and versioned JSON scene serialization
-- [x] Live cube model matrix sourced from C# transform; compiled C# preview behaviour rotates it
-- [ ] Verify core tests and behaviour-renderer bridge in CI/device runs
+- [x] Live cube model matrix sourced from the C# entity world transform
+- [ ] Verify core tests and behaviour-to-renderer bridge in CI/device runs
 - [ ] Add transform-aware camera/light/material rendering, resource cache and disposal integration
 - [ ] Add scene format migrations, asset references and crash-safe transactional saves
 
 ## Milestone 3 — script IDE
-- [x] Editable C# source buffer and script document/diagnostic data model
+- [x] Editable C# source buffer and structured diagnostic model
 - [x] Basic keyword/comment coloring and delimiter diagnostics
 - [x] App-private script save/load
-- [ ] Project tree backed by real files and multi-file editing
-- [ ] Roslyn diagnostics/compiler strategy compatible with Android AOT
-- [ ] Safe execution model for user-authored scripts (do not load arbitrary JIT assemblies)
-- [ ] Permission-limited script API, quotas, exception isolation and robust error reporting
-- [ ] Prove a user-edited script changes the rendered cube under the chosen execution model
+- [x] Restricted allow-listed C# behaviour interpreter designed for Android AOT (no IL/JIT/assembly load)
+- [x] Sandbox rejects file/network/reflection/process tokens and unknown statements
+- [x] Source-size and instruction-count limits, line/column diagnostics, stop-on-runtime-error behavior
+- [x] Core tests cover supported rotation behaviour and blocked file APIs
+- [ ] Verify user-edited behaviour changes the rendered cube in the APK/emulator run
+- [ ] Expand safe syntax only with tests; general Roslyn/full-language support remains out of scope until a compatible runtime is proven
+- [ ] Multi-file project tree backed by real files
 
 ## Milestone 4 — integrated mobile editor
 - [x] Scene hierarchy prototype and selected-entity transform inspector
