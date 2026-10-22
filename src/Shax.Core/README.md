@@ -19,4 +19,4 @@ Example:
 
 Both `using Shax;` and the compatibility entry points under `using ShaxEngine;` are available.
 
-The .NET 10 Android app references this library directly and passes the cube world matrix to native `libshax.so`. The editor's current script buffer does not dynamically compile arbitrary user source; the visible cube behaviour is compiled into the application. An AOT-compatible, permission-limited script execution strategy remains a separate milestone.
+The .NET 10 Android app references this library directly and passes the cube world matrix to native `libshax.so`. `CSharpSubsetRuntime` interprets a strict allow-list of behaviour statements (rotation and local position/scale assignments) without IL generation, JIT, assembly loading, reflection, filesystem access or network access. Unsupported statements are rejected with line/column diagnostics. This is not a general C# compiler or full-language runtime; expanding the subset requires new tests and explicit permission boundaries.
