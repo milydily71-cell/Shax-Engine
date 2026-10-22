@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Shax.Android</RootNamespace>
+    <ApplicationId>com.shax.engine.dotnet</ApplicationId>
+    <ApplicationTitle>Shax Engine</ApplicationTitle>
+    <ApplicationVersion>2</ApplicationVersion>
+    <ApplicationDisplayVersion>0.2.0</ApplicationDisplayVersion>
+    <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+    <TargetSdkVersion>35</TargetSdkVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Shax.Core/Shax.Core.csproj" />
+  </ItemGroup>
+</Project>
