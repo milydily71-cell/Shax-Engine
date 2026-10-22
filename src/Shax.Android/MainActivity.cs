@@ -29,6 +29,9 @@ public sealed class MainActivity : Activity
     private LinearLayout? _scriptPanel;
     private TextView? _assetPanel;
     private TextView? _consolePanel;
+    private LinearLayout? _materialPanel;
+    private TextView? _roughnessValue, _metallicValue;
+    private SeekBar? _roughnessSeek, _metallicSeek;
     private EditText? _positionX, _positionY, _positionZ;
     private readonly Stack<Vector3> _undo = new();
     private readonly Stack<Vector3> _redo = new();
@@ -60,6 +63,7 @@ public sealed class MainActivity : Activity
         AddAction(toolbar, "Scene", () => ShowPanel("scene"));
         AddAction(toolbar, "Script IDE", () => ShowPanel("script"));
         AddAction(toolbar, "Assets", () => ShowPanel("assets"));
+        AddAction(toolbar, "Material", () => ShowPanel("material"));
         AddAction(toolbar, "Console", () => ShowPanel("console"));
         AddAction(toolbar, "Save", SaveScript);
         AddAction(toolbar, "Save Scene", SaveScene);
@@ -126,6 +130,24 @@ public sealed class MainActivity : Activity
         _workspace.AddView(_consolePanel, new FrameLayout.LayoutParams(-1, -1));
         _consolePanel.Visibility = ViewStates.Gone;
 
+        _materialPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        _materialPanel.SetPadding(18, 16, 18, 16);
+        _materialPanel.SetBackgroundColor(global::Android.Graphics.Color.Rgb(24, 30, 40));
+        _materialPanel.AddView(Label("PBR MATERIAL INSPECTOR", 15, true));
+        _materialPanel.AddView(Label("Metallic-roughness Cook-Torrance BRDF with procedural environment-cubemap IBL", 12, false));
+        _roughnessValue = Label("Roughness: 0.28", 13, false);
+        _materialPanel.AddView(_roughnessValue);
+        _roughnessSeek = new SeekBar(this) { Max = 96, Progress = 24 };
+        _roughnessSeek.ProgressChanged += (_, e) => { if (e.FromUser) { var value = Math.Clamp(e.Progress / 96f, 0.04f, 1f); if (_roughnessValue != null) _roughnessValue.Text = $"Roughness: {value:0.00}"; _viewport?.SetMaterial(value, (_metallicSeek?.Progress ?? 8) / 100f); } };
+        _materialPanel.AddView(_roughnessSeek);
+        _metallicValue = Label("Metallic: 0.08", 13, false);
+        _materialPanel.AddView(_metallicValue);
+        _metallicSeek = new SeekBar(this) { Max = 100, Progress = 8 };
+        _metallicSeek.ProgressChanged += (_, e) => { if (e.FromUser) { var value = e.Progress / 100f; if (_metallicValue != null) _metallicValue.Text = $"Metallic: {value:0.00}"; _viewport?.SetMaterial((_roughnessSeek?.Progress ?? 24) / 96f, value); } };
+        _materialPanel.AddView(_metallicSeek);
+        _workspace.AddView(_materialPanel, new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top));
+        _materialPanel.Visibility = ViewStates.Gone;
+
         _status = Label("NET 10 • C# CORE • NATIVE GLES 3.2 / 3.0", 11, false);
         _status.SetPadding(10, 6, 10, 6);
         _root.AddView(_status, new LinearLayout.LayoutParams(-1, -2));
@@ -162,11 +184,13 @@ public sealed class MainActivity : Activity
         if (_hierarchyPanel != null) _hierarchyPanel.Visibility = panel == "scene" ? ViewStates.Visible : ViewStates.Gone;
         if (_assetPanel != null) _assetPanel.Visibility = panel == "assets" ? ViewStates.Visible : ViewStates.Gone;
         if (_consolePanel != null) _consolePanel.Visibility = panel == "console" ? ViewStates.Visible : ViewStates.Gone;
+        if (_materialPanel != null) _materialPanel.Visibility = panel == "material" ? ViewStates.Visible : ViewStates.Gone;
         if (panel == "scene") RefreshInspector();
         SetStatus(panel switch {
             "scene" => "Scene • hierarchy, transform inspector and live viewport",
             "script" => "Script IDE • restricted AOT-safe C# subset and diagnostics",
-            "assets" => "Asset browser • project tree prototype",
+            "assets" => "Asset browser • project tree and GLB importer APIs",
+            "material" => "Material • live PBR roughness and metallic controls",
             _ => "Console • native and editor messages"
         });
     }
