@@ -153,7 +153,14 @@ public sealed class PhysicsWorld
             controller.IsGrounded = displacement.Y <= 0 && verticalHit.Value.Normal.Y > 0;
         }
         else controller.IsGrounded = false;
-        return verticalHit ?? hit;
+        var result = verticalHit ?? hit;
+        if (result is not null)
+        {
+            foreach (var listener in entity.Components.OfType<ICollisionListener>()) listener.OnCollisionEnter(result.Value);
+            foreach (var listener in result.Value.Other.Components.OfType<ICollisionListener>())
+                listener.OnCollisionEnter(result.Value with { Self = result.Value.Other, Other = entity, Normal = -result.Value.Normal });
+        }
+        return result;
     }
 
     private void Simulate(Scene scene, float dt)
@@ -211,8 +218,7 @@ public sealed class PhysicsWorld
         if (normal.X != 0) body.Velocity = new Vector3(0, body.Velocity.Y, body.Velocity.Z);
         if (normal.Y != 0) body.Velocity = new Vector3(body.Velocity.X, 0, body.Velocity.Z);
         if (normal.Z != 0) body.Velocity = new Vector3(body.Velocity.X, body.Velocity.Y, 0);
-        if (previous.TryGetValue(entity.Id, out var pos) && normal.Y != 0 && normal.Y < 0)
-            entity.Transform.LocalPosition = new Vector3(entity.Transform.LocalPosition.X, MathF.Max(entity.Transform.LocalPosition.Y, pos.Y), entity.Transform.LocalPosition.Z);
+        if (previous.TryGetValue(entity.Id, out var pos)) entity.Transform.LocalPosition = pos;
     }
 
     private CollisionInfo? FindCollision(Entity entity, Collider self)
