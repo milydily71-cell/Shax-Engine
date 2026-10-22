@@ -13,6 +13,7 @@ public static class CSharpSubsetRuntime
     private static readonly Regex BehaviourType = new(@"\bclass\s+\w+\s*:\s*(?:Shax\.)?ShaxBehaviour\b", RegexOptions.None);
     private static readonly Regex UpdateMethod = new(@"\bUpdate\s*\(\s*float\s+deltaTime\s*\)\s*\{(?<body>[^{}]*)\}", RegexOptions.Singleline);
     private static readonly Regex Rotate = new(@"^Transform\.Rotate\s*\(\s*(?:(?:System\.Numerics)\.)?Vector3\.Unit(?<axis>[XYZ])\s*,\s*(?<speed>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*\*\s*deltaTime\s*\)$", RegexOptions.None);
+    private static readonly Regex Translate = new(@"^Transform\.Translate\s*\(\s*(?:(?:System\.Numerics)\.)?Vector3\.Unit(?<axis>[XYZ])\s*,\s*(?<speed>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*\*\s*deltaTime\s*\)$", RegexOptions.None);
     private static readonly Regex VectorAssignment = new(@"^Transform\.(?<property>LocalPosition|LocalScale)\s*=\s*new\s+(?:(?:System\.Numerics)\.)?Vector3\s*\(\s*(?<x>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*,\s*(?<y>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*,\s*(?<z>[+-]?(?:\d+(?:\.\d*)?|\.\d+))f?\s*\)$", RegexOptions.None);
     private static readonly Regex Comments = new(@"//[^\r\n]*|/\*.*?\*/", RegexOptions.Singleline);
     private static readonly string[] ForbiddenTokens =
@@ -67,6 +68,17 @@ public static class CSharpSubsetRuntime
                 catch (FormatException) { return Failure("Rotation speed must be a finite number.", line, column); }
                 var axis = rotate.Groups["axis"].Value switch { "X" => Vector3.UnitX, "Y" => Vector3.UnitY, _ => Vector3.UnitZ };
                 instructions.Add(new ScriptInstruction(ScriptInstructionKind.Rotate, axis, speed));
+                continue;
+            }
+            var translate = Translate.Match(statement);
+            if (translate.Success)
+            {
+                if (instructions.Count >= 256) return Failure("Script exceeds the 256-instruction limit.", line, column);
+                float speed;
+                try { speed = Parse(translate.Groups["speed"].Value); }
+                catch (FormatException) { return Failure("Translation speed must be a finite number.", line, column); }
+                var axis = translate.Groups["axis"].Value switch { "X" => Vector3.UnitX, "Y" => Vector3.UnitY, _ => Vector3.UnitZ };
+                instructions.Add(new ScriptInstruction(ScriptInstructionKind.Translate, axis, speed));
                 continue;
             }
             var assignment = VectorAssignment.Match(statement);
@@ -135,6 +147,7 @@ public sealed class ScriptProgram
             switch (instruction.Kind)
             {
                 case ScriptInstructionKind.Rotate: behaviour.Transform.Rotate(instruction.Vector, instruction.Scalar * deltaTime); break;
+                case ScriptInstructionKind.Translate: behaviour.Transform.Translate(instruction.Vector, instruction.Scalar * deltaTime); break;
                 case ScriptInstructionKind.SetPosition: behaviour.Transform.LocalPosition = instruction.Vector; break;
                 case ScriptInstructionKind.SetScale: behaviour.Transform.LocalScale = instruction.Vector; break;
                 default: throw new InvalidOperationException("Unknown safe script instruction.");
@@ -143,7 +156,7 @@ public sealed class ScriptProgram
     }
 }
 
-internal enum ScriptInstructionKind { Rotate, SetPosition, SetScale }
+internal enum ScriptInstructionKind { Rotate, Translate, SetPosition, SetScale }
 internal sealed class ScriptInstruction
 {
     public ScriptInstructionKind Kind { get; }
