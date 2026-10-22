@@ -29,6 +29,12 @@ public class Transform
         if (parent is not null && !parent._children.Contains(this)) parent._children.Add(this);
     }
 
+    public void Translate(Vector3 direction, float distance)
+    {
+        if (direction.LengthSquared() < 1e-8f || !float.IsFinite(distance)) return;
+        LocalPosition += Vector3.Normalize(direction) * distance;
+    }
+
     public void Rotate(Vector3 axis, float degrees)
     {
         if (axis.LengthSquared() < 1e-8f) return;
