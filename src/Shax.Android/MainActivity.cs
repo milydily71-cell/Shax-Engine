@@ -26,6 +26,7 @@ public sealed class MainActivity : Activity
     private TextView? _status;
     private TextView? _diagnostics;
     private LinearLayout? _hierarchyPanel;
+    private LinearLayout? _scriptPanel;
     private TextView? _assetPanel;
     private TextView? _consolePanel;
     private EditText? _positionX, _positionY, _positionZ;
@@ -71,6 +72,7 @@ public sealed class MainActivity : Activity
         _workspace.AddView(_viewport, new FrameLayout.LayoutParams(-1, -1));
 
         var scriptPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        _scriptPanel = scriptPanel;
         scriptPanel.SetBackgroundColor(Android.Graphics.Color.Rgb(25, 31, 42));
         _scriptEditor = new EditText(this)
         {
@@ -107,7 +109,7 @@ public sealed class MainActivity : Activity
         positionRow.AddView(_positionZ, new LinearLayout.LayoutParams(0, -2, 1));
         _hierarchyPanel.AddView(positionRow);
         AddAction(_hierarchyPanel, "Apply Position", ApplyTransform);
-        _workspace.AddView(_hierarchyPanel, new FrameLayout.LayoutParams(-1, -1));
+        _workspace.AddView(_hierarchyPanel, new FrameLayout.LayoutParams(-1, 260, GravityFlags.Bottom));
         _hierarchyPanel.Visibility = ViewStates.Gone;
 
         _assetPanel = Label("ASSET BROWSER\n\nScripts/\n  PlayerScript.cs\n\nScenes/\n  MainScene.shax.json\n\nTextures/\n  Drop image assets here (import pipeline pending)\n\nModels/\n  GLB/glTF importer pending", 14, false);
@@ -153,22 +155,10 @@ public sealed class MainActivity : Activity
     private void ShowPanel(string panel)
     {
         if (_viewport != null) _viewport.Visibility = panel == "scene" ? ViewStates.Visible : ViewStates.Gone;
-        if (_scriptEditor?.Parent is View scriptParent) scriptParent.Visibility = panel == "script" ? ViewStates.Visible : ViewStates.Gone;
+        if (_scriptPanel != null) _scriptPanel.Visibility = panel == "script" ? ViewStates.Visible : ViewStates.Gone;
         if (_hierarchyPanel != null) _hierarchyPanel.Visibility = panel == "scene" ? ViewStates.Visible : ViewStates.Gone;
         if (_assetPanel != null) _assetPanel.Visibility = panel == "assets" ? ViewStates.Visible : ViewStates.Gone;
         if (_consolePanel != null) _consolePanel.Visibility = panel == "console" ? ViewStates.Visible : ViewStates.Gone;
-        if (_workspace != null)
-        {
-            // Keep the native viewport visible only in Scene mode; editor panels occupy the same workspace.
-            foreach (var child in _workspace.Children)
-            {
-                if (ReferenceEquals(child, _viewport)) child.Visibility = panel == "scene" ? ViewStates.Visible : ViewStates.Gone;
-                else if (ReferenceEquals(child, _hierarchyPanel)) child.Visibility = panel == "scene" ? ViewStates.Visible : ViewStates.Gone;
-                else if (_scriptEditor != null && ReferenceEquals(child, _scriptEditor.Parent)) child.Visibility = panel == "script" ? ViewStates.Visible : ViewStates.Gone;
-                else if (ReferenceEquals(child, _assetPanel)) child.Visibility = panel == "assets" ? ViewStates.Visible : ViewStates.Gone;
-                else if (ReferenceEquals(child, _consolePanel)) child.Visibility = panel == "console" ? ViewStates.Visible : ViewStates.Gone;
-            }
-        }
         if (panel == "scene") RefreshInspector();
         SetStatus(panel switch {
             "scene" => "Scene • hierarchy, transform inspector and live viewport",
