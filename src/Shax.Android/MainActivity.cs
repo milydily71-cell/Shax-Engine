@@ -166,7 +166,7 @@ public sealed class MainActivity : Activity
         _workspace.AddView(_hierarchyPanel, new FrameLayout.LayoutParams(-1, 420, GravityFlags.Bottom));
         _hierarchyPanel.Visibility = ViewStates.Gone;
 
-        _assetPanel = Label("ASSET BROWSER\n\nScripts/\n  PlayerScript.cs\n\nScenes/\n  MainScene.shax.json\n\nTextures/\n  Image import pending\n\nModels/\n  GLB/glTF importer pending", 14, false);
+        _assetPanel = Label("ASSET BROWSER\\n\\nScripts/\\n  PlayerScript.cs\\n\\nScenes/\\n  MainScene.shax.json\\n\\nModels/\\n  Import .glb / .gltf\\n\\nTextures/\\n  Embedded GLB base-color texture upload supported\\n\\nNote: multi-material texture binding, external .gltf resources and full extension coverage are still in progress.", 14, false);
         _assetPanel.SetPadding(16, 16, 16, 16);
         _assetPanel.SetBackgroundColor(global::Android.Graphics.Color.Rgb(24, 30, 40));
         _workspace.AddView(_assetPanel, new FrameLayout.LayoutParams(-1, -1));
