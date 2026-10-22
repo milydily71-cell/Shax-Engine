@@ -100,12 +100,14 @@ jobs:
             adb shell monkey -p com.shax.engine.dotnet 1
             sleep 10
             adb shell pidof com.shax.engine.dotnet
+            adb logcat -d | grep -E 'OpenGL ES 3.2|OpenGL ES 3.0'
             adb shell input keyevent HOME
             sleep 3
-            adb shell monkey -p com.shax.engine.dotnet 1
+            adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER --ez shax.forceGles30 true
             sleep 10
             adb shell pidof com.shax.engine.dotnet
             adb logcat -d | grep -E 'Native libshax.so renderer initialized|ShaxNative|AOT-safe Shax C# subset compiled and running'
+            adb logcat -d | grep -q 'OpenGL ES 3.0'
             COUNT="$(adb logcat -d | grep -c 'Native libshax.so renderer initialized' || true)"
             test "$COUNT" -ge 2
             adb logcat -d | grep -q "AOT-safe Shax C# subset compiled and running"
