@@ -42,6 +42,8 @@ public sealed class MainActivity : Activity
     private bool _highlighting;
     private RuntimeScriptBehaviour? _runtimeScript;
     private bool _forceGles30;
+    private string _currentScriptName = "PlayerScript.cs";
+    private Button? _scriptProjectButton;
     private readonly PbrMaterialSettings _materialSettings = new();
 
     protected override void OnCreate(Bundle? savedInstanceState)
@@ -99,6 +101,14 @@ public sealed class MainActivity : Activity
         _scriptEditor.SetTextColor(global::Android.Graphics.Color.Rgb(225, 233, 245));
         _scriptEditor.SetBackgroundColor(global::Android.Graphics.Color.Rgb(25, 31, 42));
         _scriptEditor.SetPadding(12, 12, 12, 12);
+        var scriptProjectRow = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+        _scriptProjectButton = new Button(this) { Text = "Project: PlayerScript.cs", TextSize = 10 };
+        _scriptProjectButton.SetOnClickListener(new ClickAction(ShowScriptPicker));
+        scriptProjectRow.AddView(_scriptProjectButton, new LinearLayout.LayoutParams(0, -2, 1));
+        var newScriptButton = new Button(this) { Text = "+ New", TextSize = 10 };
+        newScriptButton.SetOnClickListener(new ClickAction(CreateScriptDialog));
+        scriptProjectRow.AddView(newScriptButton, new LinearLayout.LayoutParams(-2, -2));
+        _scriptPanel.AddView(scriptProjectRow, new LinearLayout.LayoutParams(-1, -2));
         _scriptPanel.AddView(_scriptEditor, new LinearLayout.LayoutParams(-1, 0, 1));
         _diagnostics = Label("Diagnostics: waiting for edits", 11, false);
         _diagnostics.SetPadding(10, 6, 10, 6);
@@ -365,17 +375,56 @@ public sealed class MainActivity : Activity
             : "Diagnostics: " + string.Join(", ", errors);
     }
 
-    private void LoadScript()
+    private string ScriptDirectory => Path.Combine(FilesDir!.AbsolutePath, "Scripts");
+
+    private void LoadScript() => LoadScriptFile(_currentScriptName);
+
+    private void LoadScriptFile(string name)
     {
         try
         {
-            using var stream = OpenFileInput("PlayerScript.cs") ?? throw new System.IO.IOException("Could not open saved script.");
-            using var reader = new System.IO.StreamReader(stream);
-            if (_scriptEditor != null) _scriptEditor.Text = reader.ReadToEnd();
+            Directory.CreateDirectory(ScriptDirectory);
+            var path = Path.Combine(ScriptDirectory, name);
+            if (!File.Exists(path)) WritePrivateFileAtomically(Path.Combine("Scripts", name), ScriptDocument.DefaultSource);
+            if (_scriptEditor != null) _scriptEditor.Text = File.ReadAllText(path);
+            if (_scriptProjectButton != null) _scriptProjectButton.Text = "Project: " + name;
             ApplySyntaxHighlighting(); UpdateDiagnostics();
+            SetStatus("Opened project script: " + name);
         }
-        catch (Java.IO.FileNotFoundException) { }
         catch (Exception ex) { SetStatus("Script load failed: " + ex.Message); }
+    }
+
+    private void ShowScriptPicker()
+    {
+        try
+        {
+            Directory.CreateDirectory(ScriptDirectory);
+            var files = Directory.GetFiles(ScriptDirectory, "*.cs").Select(Path.GetFileName).Where(x => !string.IsNullOrWhiteSpace(x)).Cast<string>().OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
+            if (files.Length == 0) files = new[] { "PlayerScript.cs" };
+            new AlertDialog.Builder(this).SetTitle("Project scripts")
+                .SetItems(files, (_, e) => { _currentScriptName = files[e.Which]; LoadScriptFile(_currentScriptName); })
+                .SetNeutralButton("New Script", (_, _) => CreateScriptDialog())
+                .SetNegativeButton("Cancel", (_, _) => { }).Show();
+        }
+        catch (Exception ex) { SetStatus("Project tree failed: " + ex.Message); }
+    }
+
+    private void CreateScriptDialog()
+    {
+        var input = new EditText(this) { Hint = "Example.cs", SingleLine = true };
+        new AlertDialog.Builder(this).SetTitle("Create C# script").SetView(input)
+            .SetNegativeButton("Cancel", (_, _) => { })
+            .SetPositiveButton("Create", (_, _) =>
+            {
+                var name = input.Text?.Trim() ?? string.Empty;
+                if (!name.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) name += ".cs";
+                if (string.IsNullOrWhiteSpace(name) || name != Path.GetFileName(name) || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                { SetStatus("Invalid script filename."); return; }
+                var path = Path.Combine(ScriptDirectory, name);
+                if (File.Exists(path)) { SetStatus("Script already exists: " + name); return; }
+                WritePrivateFileAtomically(Path.Combine("Scripts", name), ScriptDocument.DefaultSource);
+                _currentScriptName = name; LoadScriptFile(name);
+            }).Show();
     }
 
 
@@ -403,6 +452,7 @@ public sealed class MainActivity : Activity
         var directory = FilesDir!.AbsolutePath;
         Directory.CreateDirectory(directory);
         var destination = Path.Combine(directory, name);
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
         var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
@@ -417,8 +467,8 @@ public sealed class MainActivity : Activity
         try
         {
             if (_scriptEditor == null) return;
-            WritePrivateFileAtomically("PlayerScript.cs", _scriptEditor.Text?.ToString() ?? string.Empty);
-            SetStatus("Saved PlayerScript.cs atomically to app-private storage.");
+            WritePrivateFileAtomically(Path.Combine("Scripts", _currentScriptName), _scriptEditor.Text?.ToString() ?? string.Empty);
+            SetStatus("Saved " + _currentScriptName + " atomically to app-private project storage.");
         }
         catch (Exception ex) { SetStatus("Script save failed: " + ex.Message); }
     }
