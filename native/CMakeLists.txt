@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(shax LANGUAGES CXX)
+add_library(shax SHARED shax.cpp)
+target_compile_features(shax PRIVATE cxx_std_20)
+target_compile_options(shax PRIVATE -Wall -Wextra -Werror=return-type -fvisibility=hidden)
+target_link_libraries(shax PRIVATE GLESv3 log)
