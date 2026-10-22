@@ -377,6 +377,7 @@ extern "C" __attribute__((visibility("default"))) void shax_draw(const float* vi
     glUseProgram(pbrProgram);
     if (pbrSkinned>=0) glUniform1i(pbrSkinned,0);
     if (pbrJointCount>=0) glUniform1i(pbrJointCount,0);
+    if (pbrUseBaseColorTexture>=0) glUniform1i(pbrUseBaseColorTexture,0);
     glBindBuffer(GL_ARRAY_BUFFER,cubeVbo);
     glEnableVertexAttribArray(0); glEnableVertexAttribArray(1); glEnableVertexAttribArray(2);
     glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,9*sizeof(float),nullptr);
@@ -409,7 +410,7 @@ extern "C" __attribute__((visibility("default"))) int shax_upload_mesh(const flo
     importedVbo = importedEbo = 0;
     glGenBuffers(1, &importedVbo);
     glBindBuffer(GL_ARRAY_BUFFER, importedVbo);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(static_cast<size_t>(vertexCount) * 17u * sizeof(float)), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(static_cast<size_t>(vertexCount) * 19u * sizeof(float)), vertices, GL_STATIC_DRAW);
     glGenBuffers(1, &importedEbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, importedEbo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(static_cast<size_t>(indexCount) * sizeof(uint32_t)), indices, GL_STATIC_DRAW);
@@ -418,8 +419,31 @@ extern "C" __attribute__((visibility("default"))) int shax_upload_mesh(const flo
     const auto error = glGetError();
     if (error != GL_NO_ERROR) { LOGE("Imported mesh upload failed: GL error=0x%x", error); importedIndexCount = 0; return 0; }
     LOGI("Imported mesh uploaded: vertices=%d indices=%d bytes=%zu", vertexCount, indexCount,
-         static_cast<size_t>(vertexCount) * 17u * sizeof(float) + static_cast<size_t>(indexCount) * sizeof(uint32_t));
+         static_cast<size_t>(vertexCount) * 19u * sizeof(float) + static_cast<size_t>(indexCount) * sizeof(uint32_t));
     return 1;
+}
+extern "C" __attribute__((visibility("default"))) int shax_upload_base_color_texture(const uint8_t* rgba, int width, int height) {
+    if (!rgba || width <= 0 || height <= 0 || width > 8192 || height > 8192) return 0;
+    if (importedBaseColorTexture) glDeleteTextures(1, &importedBaseColorTexture);
+    importedBaseColorTexture = 0;
+    glGenTextures(1, &importedBaseColorTexture);
+    glBindTexture(GL_TEXTURE_2D, importedBaseColorTexture);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    const auto error = glGetError();
+    if (error != GL_NO_ERROR) { LOGE("Base-color texture upload failed: GL error=0x%x", error); glDeleteTextures(1,&importedBaseColorTexture); importedBaseColorTexture=0; return 0; }
+    LOGI("Imported base-color texture uploaded: %dx%d", width, height);
+    return 1;
+}
+extern "C" __attribute__((visibility("default"))) void shax_clear_base_color_texture() {
+    if (importedBaseColorTexture) glDeleteTextures(1, &importedBaseColorTexture);
+    importedBaseColorTexture = 0;
 }
 extern "C" __attribute__((visibility("default"))) void shax_set_skin_matrices(const float* matrices, int jointCount) {
     skinMatrixCount = std::clamp(jointCount, 0, 32);
@@ -446,12 +470,13 @@ extern "C" __attribute__((visibility("default"))) void shax_draw_imported(const 
     glBindBuffer(GL_ARRAY_BUFFER, importedVbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, importedEbo);
     glEnableVertexAttribArray(0); glEnableVertexAttribArray(1); glEnableVertexAttribArray(2);
-    glEnableVertexAttribArray(3); glEnableVertexAttribArray(4);
-    glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,17*sizeof(float),nullptr);
-    glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,17*sizeof(float),reinterpret_cast<void*>(3*sizeof(float)));
-    glVertexAttribPointer(2,3,GL_FLOAT,GL_FALSE,17*sizeof(float),reinterpret_cast<void*>(6*sizeof(float)));
-    glVertexAttribPointer(3,4,GL_FLOAT,GL_FALSE,17*sizeof(float),reinterpret_cast<void*>(9*sizeof(float)));
-    glVertexAttribPointer(4,4,GL_FLOAT,GL_FALSE,17*sizeof(float),reinterpret_cast<void*>(13*sizeof(float)));
+    glEnableVertexAttribArray(3); glEnableVertexAttribArray(4); glEnableVertexAttribArray(5);
+    glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,19*sizeof(float),nullptr);
+    glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,19*sizeof(float),reinterpret_cast<void*>(3*sizeof(float)));
+    glVertexAttribPointer(2,3,GL_FLOAT,GL_FALSE,19*sizeof(float),reinterpret_cast<void*>(6*sizeof(float)));
+    glVertexAttribPointer(3,4,GL_FLOAT,GL_FALSE,19*sizeof(float),reinterpret_cast<void*>(9*sizeof(float)));
+    glVertexAttribPointer(4,4,GL_FLOAT,GL_FALSE,19*sizeof(float),reinterpret_cast<void*>(13*sizeof(float)));
+    glVertexAttribPointer(5,2,GL_FLOAT,GL_FALSE,19*sizeof(float),reinterpret_cast<void*>(17*sizeof(float)));
     glUniformMatrix4fv(pbrMvp,1,GL_FALSE,mvp); glUniformMatrix4fv(pbrModel,1,GL_FALSE,model);
     if (pbrCamera>=0) glUniform3f(pbrCamera,cameraX,cameraY,cameraZ);
     if (pbrRoughness>=0) glUniform1f(pbrRoughness,std::clamp(roughness,0.04f,1.0f));
@@ -459,12 +484,16 @@ extern "C" __attribute__((visibility("default"))) void shax_draw_imported(const 
     if (pbrLight>=0) glUniform3f(pbrLight,-0.4f,-0.8f,-0.25f);
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_CUBE_MAP,environmentCube);
     if (pbrEnvironment>=0) glUniform1i(pbrEnvironment,0);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, importedBaseColorTexture);
+    if (pbrBaseColorTexture>=0) glUniform1i(pbrBaseColorTexture,1);
+    if (pbrUseBaseColorTexture>=0) glUniform1i(pbrUseBaseColorTexture,importedBaseColorTexture?1:0);
+    glActiveTexture(GL_TEXTURE0);
     const int skinCount = std::clamp(skinMatrixCount,0,32);
     if (pbrJointCount>=0) glUniform1i(pbrJointCount,skinCount);
     if (pbrSkinned>=0) glUniform1i(pbrSkinned,skinCount>0?1:0);
     if (pbrJointMatrices>=0 && skinCount>0) glUniformMatrix4fv(pbrJointMatrices,skinCount,GL_FALSE,skinMatrices);
     glDrawElements(GL_TRIANGLES, importedIndexCount, GL_UNSIGNED_INT, nullptr);
-    glDisableVertexAttribArray(4); glDisableVertexAttribArray(3); glDisableVertexAttribArray(2);
+    glDisableVertexAttribArray(5); glDisableVertexAttribArray(4); glDisableVertexAttribArray(3); glDisableVertexAttribArray(2);
     glDisableVertexAttribArray(1); glDisableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER,0); glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
     endGpuTiming();
@@ -481,6 +510,6 @@ extern "C" __attribute__((visibility("default"))) void shax_shutdown() {
     if (gpuTimingEnabled && deleteQueriesExt) deleteQueriesExt(4, gpuQueries);
     gpuTimingEnabled = false; gpuQueryActive = false;
     for (int i=0;i<4;i++) { gpuQueries[i]=0; gpuQueryPending[i]=false; }
-    sceneVbo=cubeVbo=environmentCube=importedVbo=importedEbo=sceneProgram=pbrProgram=skyProgram=0;
+    sceneVbo=cubeVbo=environmentCube=importedVbo=importedEbo=importedBaseColorTexture=sceneProgram=pbrProgram=skyProgram=0;
     importedIndexCount=0; skinMatrixCount=0;
 }
