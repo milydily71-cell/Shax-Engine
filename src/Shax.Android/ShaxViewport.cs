@@ -12,12 +12,43 @@ public sealed class ShaxViewport : GLSurfaceView
     public ShaxViewport(Context context) : base(context)
     {
         SetEGLContextClientVersion(3);
+        SetEGLContextFactory(new Es32ContextFactory());
         SetRenderer(new ViewportRenderer());
         RenderMode = Rendermode.Continuously;
         PreserveEGLContextOnPause = true;
     }
 
-    private sealed class ViewportRenderer : Java.Lang.Object, IRenderer
+    private sealed class Es32ContextFactory : Java.Lang.Object, GLSurfaceView.IEGLContextFactory
+    {
+        public EGLContext? CreateContext(IEGL10? egl, EGLDisplay? display, EGLConfig? config)
+        {
+            if (egl == null || display == null || config == null)
+                throw new InvalidOperationException("EGL is not ready.");
+            EGLContext? Try(int minor)
+            {
+                int[] attributes = minor == 0
+                    ? new[] { 0x3098, 3, 0x3038 }
+                    : new[] { 0x3098, 3, 0x30FB, minor, 0x3038 };
+                return egl.EglCreateContext(display, config, EGL10.EglNoContext, attributes);
+            }
+            var context = Try(2);
+            if (context != null && !context.Equals(EGL10.EglNoContext)) return context;
+            context = Try(1);
+            if (context != null && !context.Equals(EGL10.EglNoContext)) return context;
+            context = Try(0);
+            if (context == null || context.Equals(EGL10.EglNoContext))
+                throw new InvalidOperationException("Shax requires OpenGL ES 3.0 or newer.");
+            return context;
+        }
+
+        public void DestroyContext(IEGL10? egl, EGLDisplay? display, EGLContext? context)
+        {
+            if (egl != null && display != null && context != null && !egl.EglDestroyContext(display, context))
+                Android.Util.Log.Error("ShaxEngine", "Failed to destroy EGL context.");
+        }
+    }
+
+    private sealed class ViewportRenderer : Java.Lang.Object, GLSurfaceView.IRenderer
     {
         private int _program;
         private int _width = 1, _height = 1;
