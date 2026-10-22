@@ -1,3 +1,4 @@
+using global::Android.Content;
 using Android.App;
 using Android.OS;
 using Android.Views;
