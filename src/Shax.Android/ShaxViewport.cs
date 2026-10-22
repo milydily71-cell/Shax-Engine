@@ -61,10 +61,13 @@ public sealed class ShaxViewport : GLSurfaceView
 
             EGLContext? TryCreate(int minor)
             {
-                var attributes = minor == 0
-                    ? new[] { 0x3098, 3, 0x3038 }
-                    : new[] { 0x3098, 3, 0x30FB, minor, 0x3038 };
-                return egl.EglCreateContext(display, config, IEGL10.EglNoContext, attributes);
+                var attributes = new[] { 0x3098, 3, 0x30FB, minor, 0x3038 };
+                var requested = egl.EglCreateContext(display, config, IEGL10.EglNoContext, attributes);
+                if (requested is not null && !requested.Equals(IEGL10.EglNoContext)) return requested;
+                // Only the automatic fallback may use legacy client-version attributes.
+                if (minor == 0 && !ForceGles30)
+                    return egl.EglCreateContext(display, config, IEGL10.EglNoContext, new[] { 0x3098, 3, 0x3038 });
+                return requested;
             }
 
             var context = ForceGles30 ? TryCreate(0) : TryCreate(2);
