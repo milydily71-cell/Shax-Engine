@@ -1,17 +1,38 @@
+using System.Numerics;
+
 namespace Shax;
 
-/// <summary>Engine-neutral local transform state.</summary>
+/// <summary>Local transform with cycle-safe parent hierarchy and world-matrix evaluation.</summary>
 public class Transform
 {
-    public System.Numerics.Vector3 LocalPosition { get; set; } = System.Numerics.Vector3.Zero;
-    public System.Numerics.Quaternion LocalRotation { get; set; } = System.Numerics.Quaternion.Identity;
-    public System.Numerics.Vector3 LocalScale { get; set; } = System.Numerics.Vector3.One;
+    private readonly List<Transform> _children = new();
+    private Transform? _parent;
+    public Vector3 LocalPosition { get; set; } = Vector3.Zero;
+    public Quaternion LocalRotation { get; set; } = Quaternion.Identity;
+    public Vector3 LocalScale { get; set; } = Vector3.One;
+    public Transform? Parent => _parent;
+    public IReadOnlyList<Transform> Children => _children;
+    public Matrix4x4 LocalMatrix => Matrix4x4.CreateScale(LocalScale) *
+        Matrix4x4.CreateFromQuaternion(Quaternion.Normalize(LocalRotation)) *
+        Matrix4x4.CreateTranslation(LocalPosition);
+    public Matrix4x4 WorldMatrix => _parent is null ? LocalMatrix : LocalMatrix * _parent.WorldMatrix;
+    public Vector3 WorldPosition => Vector3.Transform(Vector3.Zero, WorldMatrix);
 
-    public void Rotate(System.Numerics.Vector3 axis, float degrees)
+    public void SetParent(Transform? parent)
+    {
+        if (ReferenceEquals(parent, this)) throw new InvalidOperationException("A transform cannot parent itself.");
+        for (var cursor = parent; cursor is not null; cursor = cursor.Parent)
+            if (ReferenceEquals(cursor, this)) throw new InvalidOperationException("Transform parenting cannot create a cycle.");
+        if (ReferenceEquals(_parent, parent)) return;
+        _parent?._children.Remove(this);
+        _parent = parent;
+        if (parent is not null && !parent._children.Contains(this)) parent._children.Add(this);
+    }
+
+    public void Rotate(Vector3 axis, float degrees)
     {
         if (axis.LengthSquared() < 1e-8f) return;
-        var delta = System.Numerics.Quaternion.CreateFromAxisAngle(
-            System.Numerics.Vector3.Normalize(axis), degrees * (MathF.PI / 180f));
-        LocalRotation = System.Numerics.Quaternion.Normalize(delta * LocalRotation);
+        var delta = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), degrees * (MathF.PI / 180f));
+        LocalRotation = Quaternion.Normalize(delta * LocalRotation);
     }
 }
