@@ -23,7 +23,11 @@ final class ShaxRenderer implements GLSurfaceView.Renderer {
     void zoom(float factor) { if (factor > 0) distance = Math.max(2.5f, Math.min(18f, distance / factor)); }
 
     @Override public void onSurfaceCreated(GL10 unused, EGLConfig config) {
-        glVersion = GLES30.glGetString(GLES30.GL_VERSION);\n        if (glVersion == null || !glVersion.matches("OpenGL ES 3\\.(0|2)(?:\\s|$).*")) {\n            throw new IllegalStateException("Shax supports only OpenGL ES 3.2 or ES 3.0; active driver: " + glVersion);\n        }\n        android.util.Log.i("ShaxRenderer", "Active GLES driver: " + glVersion);
+        glVersion = GLES30.glGetString(GLES30.GL_VERSION);
+        if (glVersion == null || !glVersion.matches("OpenGL ES 3\\.(0|2)(?:\\s|$).*")) {
+            throw new IllegalStateException("Shax supports only OpenGL ES 3.2 or ES 3.0; active driver: " + glVersion);
+        }
+        android.util.Log.i("ShaxRenderer", "Active GLES driver: " + glVersion);
         skyProgram = program(SKY_VS, SKY_FS);
         solidProgram = program(SOLID_VS, SOLID_FS);
         gridProgram = program(SOLID_VS, SOLID_FS);
@@ -154,8 +158,12 @@ final class ShaxRenderer implements GLSurfaceView.Renderer {
         a.add(x);a.add(y);a.add(z);a.add(r);a.add(g);a.add(b); a.add(X);a.add(Y);a.add(Z);a.add(r);a.add(g);a.add(b);
     }
 
-    private static final String SKY_VS="#version 300 es\nlayout(location=0) in vec2 aPosition; out vec2 vUv; void main(){vUv=aPosition*0.5+0.5;gl_Position=vec4(aPosition,1.0,1.0);}";
-    private static final String SKY_FS="#version 300 es\nprecision mediump float; in vec2 vUv; out vec4 fragColor; uniform vec3 uZenithColor; uniform vec3 uHorizonColor; uniform float uHorizonPower; void main(){float t=pow(clamp(vUv.y,0.0,1.0),max(uHorizonPower,0.05));fragColor=vec4(mix(uHorizonColor,uZenithColor,t),1.0);}";
-    private static final String SOLID_VS="#version 300 es\nlayout(location=0) in vec3 aPosition; layout(location=1) in vec3 aColor; uniform mat4 uMVP; out vec3 vColor; void main(){vColor=aColor;gl_Position=uMVP*vec4(aPosition,1.0);}";
-    private static final String SOLID_FS="#version 300 es\nprecision mediump float; in vec3 vColor; out vec4 fragColor; void main(){fragColor=vec4(vColor,1.0);}";
+    private static final String SKY_VS="#version 300 es
+layout(location=0) in vec2 aPosition; out vec2 vUv; void main(){vUv=aPosition*0.5+0.5;gl_Position=vec4(aPosition,1.0,1.0);}";
+    private static final String SKY_FS="#version 300 es
+precision mediump float; in vec2 vUv; out vec4 fragColor; uniform vec3 uZenithColor; uniform vec3 uHorizonColor; uniform float uHorizonPower; void main(){float t=pow(clamp(vUv.y,0.0,1.0),max(uHorizonPower,0.05));fragColor=vec4(mix(uHorizonColor,uZenithColor,t),1.0);}";
+    private static final String SOLID_VS="#version 300 es
+layout(location=0) in vec3 aPosition; layout(location=1) in vec3 aColor; uniform mat4 uMVP; out vec3 vColor; void main(){vColor=aColor;gl_Position=uMVP*vec4(aPosition,1.0);}";
+    private static final String SOLID_FS="#version 300 es
+precision mediump float; in vec3 vColor; out vec4 fragColor; void main(){fragColor=vec4(vColor,1.0);}";
 }
