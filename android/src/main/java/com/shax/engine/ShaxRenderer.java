@@ -73,9 +73,12 @@ final class ShaxRenderer implements GLSurfaceView.Renderer {
         GLES30.glEnable(GLES30.GL_BLEND);
         GLES30.glBlendFunc(GLES30.GL_SRC_ALPHA, GLES30.GL_ONE_MINUS_SRC_ALPHA);
         GLES30.glEnableVertexAttribArray(0);
+        grid.position(0);
         GLES30.glVertexAttribPointer(0, 3, GLES30.GL_FLOAT, false, 6 * 4, grid);
         GLES30.glEnableVertexAttribArray(1);
+        grid.position(3);
         GLES30.glVertexAttribPointer(1, 3, GLES30.GL_FLOAT, false, 6 * 4, grid);
+        grid.position(0);
         GLES30.glDrawArrays(GLES30.GL_LINES, 0, gridCount);
         GLES30.glDisableVertexAttribArray(0);
         GLES30.glDisableVertexAttribArray(1);
@@ -84,15 +87,18 @@ final class ShaxRenderer implements GLSurfaceView.Renderer {
         // Animated cube, basic face lighting baked into vertex colors.
         float seconds = (System.nanoTime() - startNs) / 1_000_000_000f;
         Matrix.setIdentityM(model, 0);
-        Matrix.translateM(model, 0, 0, 0.85f, 0);
+        Matrix.translateM(model, 0, 0, 0.48f, 0);
         Matrix.rotateM(model, 0, seconds * 22f, 0.3f, 1f, 0.15f);
         Matrix.multiplyMM(mvp, 0, vp, 0, model, 0);
         GLES30.glUseProgram(solidProgram);
         uniformMatrix(solidProgram, "uMVP", mvp);
         GLES30.glEnableVertexAttribArray(0);
+        cube.position(0);
         GLES30.glVertexAttribPointer(0, 3, GLES30.GL_FLOAT, false, 6 * 4, cube);
         GLES30.glEnableVertexAttribArray(1);
+        cube.position(3);
         GLES30.glVertexAttribPointer(1, 3, GLES30.GL_FLOAT, false, 6 * 4, cube);
+        cube.position(0);
         GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, cubeVertices().length / 6);
         GLES30.glDisableVertexAttribArray(0);
         GLES30.glDisableVertexAttribArray(1);
