@@ -5,6 +5,7 @@ public class Scene
 {
     private readonly List<Entity> _entities = new();
     private readonly HashSet<ShaxBehaviour> _started = new();
+    public PhysicsWorld Physics { get; } = new();
     public string Name { get; set; }
     public IReadOnlyList<Entity> Entities => _entities;
     public Scene(string name = "Scene") => Name = name;
@@ -51,6 +52,7 @@ public class Scene
     {
         if (deltaTime < 0 || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime))
             throw new ArgumentOutOfRangeException(nameof(deltaTime));
+        Physics.Bind(this);
         foreach (var entity in _entities.ToArray())
         {
             if (!entity.Active) continue;
@@ -64,5 +66,6 @@ public class Scene
                 behaviour.Update(deltaTime); behaviour.LateUpdate(deltaTime);
             }
         }
+        Physics.Step(this, deltaTime);
     }
 }
