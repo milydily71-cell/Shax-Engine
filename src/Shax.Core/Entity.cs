@@ -14,7 +14,7 @@ public sealed class Entity
 
     public T AddComponent<T>(T component) where T : class
     {
-        ArgumentNullException.ThrowIfNull(component);
+        if (component is null) throw new ArgumentNullException(nameof(component));
         if (component is ShaxBehaviour behaviour)
         {
             if (behaviour.Entity is not null)
