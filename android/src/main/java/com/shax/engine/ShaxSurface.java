@@ -4,6 +4,10 @@ import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
+import javax.microedition.khronos.egl.EGL10;
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.egl.EGLContext;
+import javax.microedition.khronos.egl.EGLDisplay;
 
 final class ShaxSurface extends GLSurfaceView {
     private final ShaxRenderer renderer;
@@ -12,8 +16,27 @@ final class ShaxSurface extends GLSurfaceView {
 
     ShaxSurface(Context context) {
         super(context);
-        // Request ES 3.x. The renderer reports the actual context version and uses ES 3.0 APIs only.
-        setEGLContextClientVersion(3);
+        // Prefer an ES 3.1 context; fall back to ES 3.0 if the driver rejects minor-version attributes.
+        setEGLContextFactory(new EGLContextFactory() {
+            private final int EGL_CONTEXT_MAJOR_VERSION_KHR = 0x3098;
+            private final int EGL_CONTEXT_MINOR_VERSION_KHR = 0x30FB;
+            @Override public EGLContext createContext(EGL10 egl, EGLDisplay display, EGLConfig config) {
+                int[] es31 = {EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL_CONTEXT_MINOR_VERSION_KHR, 1, EGL10.EGL_NONE};
+                EGLContext context = egl.eglCreateContext(display, config, EGL10.EGL_NO_CONTEXT, es31);
+                if (context != null && context != EGL10.EGL_NO_CONTEXT) return context;
+                int[] es30 = {EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL10.EGL_NONE};
+                context = egl.eglCreateContext(display, config, EGL10.EGL_NO_CONTEXT, es30);
+                if (context == null || context == EGL10.EGL_NO_CONTEXT) {
+                    throw new RuntimeException("Shax requires OpenGL ES 3.0 or newer.");
+                }
+                return context;
+            }
+            @Override public void destroyContext(EGL10 egl, EGLDisplay display, EGLContext context) {
+                if (!egl.eglDestroyContext(display, context)) {
+                    android.util.Log.e("ShaxSurface", "Failed to destroy EGL context: " + egl.eglGetError());
+                }
+            }
+        });
         renderer = new ShaxRenderer();
         setRenderer(renderer);
         setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
