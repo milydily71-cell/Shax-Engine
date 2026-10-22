@@ -154,8 +154,13 @@ void buildEnvironment() {
     constexpr int size=32; std::vector<std::uint8_t> pixels(size*size*3);
     for(int face=0;face<6;face++) {
         for(int y=0;y<size;y++) for(int x=0;x<size;x++) {
-            float v=2.0f*(y+0.5f)/size-1.0f;
-            float h=std::clamp(0.5f-v*0.35f,0.0f,1.0f);
+            float u=2.0f*(x+0.5f)/size-1.0f, v=2.0f*(y+0.5f)/size-1.0f;
+            float dx=0.0f,dy=0.0f,dz=1.0f;
+            switch(face){case 0:dx=1.0f;dy=-v;dz=-u;break;case 1:dx=-1.0f;dy=-v;dz=u;break;
+              case 2:dx=u;dy=1.0f;dz=v;break;case 3:dx=u;dy=-1.0f;dz=-v;break;
+              case 4:dx=u;dy=-v;dz=1.0f;break;default:dx=-u;dy=-v;dz=-1.0f;break;}
+            float length=std::sqrt(dx*dx+dy*dy+dz*dz); dy/=length;
+            float h=std::clamp(0.5f-dy*0.5f,0.0f,1.0f);
             size_t at=static_cast<size_t>((y*size+x)*3);
             pixels[at]=static_cast<std::uint8_t>((0.69f*(1-h)+0.018f*h)*255);
             pixels[at+1]=static_cast<std::uint8_t>((0.82f*(1-h)+0.055f*h)*255);
@@ -179,6 +184,8 @@ void buildPbrCube() {
         float ux=bx-ax,uy=by-ay,uz=bz-az,vx=cx-ax,vy=cy-ay,vz=cz-az;
         float nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
         float len=std::sqrt(nx*nx+ny*ny+nz*nz); if(len>1e-6f){nx/=len;ny/=len;nz/=len;}
+        float centerX=(ax+bx+cx)/3.0f,centerY=(ay+by+cy)/3.0f,centerZ=(az+bz+cz)/3.0f;
+        if(nx*centerX+ny*centerY+nz*centerZ<0.0f){nx=-nx;ny=-ny;nz=-nz;}
         for(int v=0;v<3;v++) {
             size_t j=i+static_cast<size_t>(v)*6;
             cubeVertices.insert(cubeVertices.end(),{sceneVertices[j],sceneVertices[j+1],sceneVertices[j+2],nx,ny,nz,sceneVertices[j+3],sceneVertices[j+4],sceneVertices[j+5]});
