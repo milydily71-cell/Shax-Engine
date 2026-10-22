@@ -24,7 +24,7 @@ jobs:
       - name: Install pinned Android SDK, NDK and CMake
         run: |
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"\n          echo "$ANDROID_HOME/cmake/3.22.1/bin" >> "$GITHUB_PATH"
       - name: Verify pinned toolchain
         run: |
           dotnet --info
@@ -85,7 +85,7 @@ jobs:
         with:
           name: shax-engine-net10-native-apk
           path: artifacts
-      - uses: android-emulator-runner@v2
+      - uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 35
           target: google_apis
