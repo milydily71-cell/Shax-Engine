@@ -359,6 +359,7 @@ extern "C" __attribute__((visibility("default"))) int shax_init() {
     return glGetError()==GL_NO_ERROR ? 1 : 0;
 }
 extern "C" __attribute__((visibility("default"))) void shax_set_camera(float x,float y,float z) { cameraX=x; cameraY=y; cameraZ=z; }
+extern "C" __attribute__((visibility("default"))) void shax_set_demo_cube_visible(int visible) { demoCubeVisible = visible != 0; }
 extern "C" __attribute__((visibility("default"))) void shax_set_material(float roughness,float metallic) { materialRoughness=std::clamp(roughness,0.04f,1.0f); materialMetallic=std::clamp(metallic,0.0f,1.0f); }
 extern "C" __attribute__((visibility("default"))) void shax_resize(int width,int height) {
     glViewport(0,0,width>0?width:1,height>0?height:1);
