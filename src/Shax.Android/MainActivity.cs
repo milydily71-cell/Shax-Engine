@@ -35,6 +35,8 @@ public sealed class MainActivity : Activity
     private const int RequestImportGlb = 4107;
     private TextView? _consolePanel;
     private LinearLayout? _materialPanel;
+    private LinearLayout? _physicsPanel;
+    private TextView? _physicsSummary;
     private TextView? _roughnessValue, _metallicValue;
     private SeekBar? _roughnessSeek, _metallicSeek;
     private EditText? _positionX, _positionY, _positionZ;
@@ -81,6 +83,8 @@ public sealed class MainActivity : Activity
         AddAction(toolbar, "Script IDE", () => ShowPanel("script"));
         AddAction(toolbar, "Assets", () => ShowPanel("assets"));
         AddAction(toolbar, "Material", () => ShowPanel("material"));
+        AddAction(toolbar, "Render Lab · 15", ShowRenderLab);
+        AddAction(toolbar, "Physics", ShowPhysicsPanel);
         AddAction(toolbar, "Console", () => ShowPanel("console"));
         AddAction(toolbar, "Save", () => SaveScript());
         AddAction(toolbar, "Save Scene", SaveScene);
@@ -195,6 +199,29 @@ public sealed class MainActivity : Activity
         _workspace.AddView(_materialPanel, new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top));
         _materialPanel.Visibility = ViewStates.Gone;
 
+        _physicsPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        _physicsPanel.SetPadding(18, 16, 18, 16);
+        _physicsPanel.SetBackgroundColor(global::Android.Graphics.Color.Rgb(24, 30, 40));
+        _physicsPanel.AddView(Label("PHYSICS & COLLISION WORKSPACE", 15, true));
+        _physicsPanel.AddView(Label("Core APIs included in the app: PhysicsWorld, Rigidbody, BoxCollider, SphereCollider, CharacterController and collision callbacks.", 12, false));
+        _physicsSummary = Label("Scene physics ready • fixed-step simulation runs through Scene.Tick while gameplay is active.", 12, false);
+        _physicsPanel.AddView(_physicsSummary);
+        var physicsActions = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+        var physicsDocs = new Button(this) { Text = "Collision API", TextSize = 11 };
+        physicsDocs.SetOnClickListener(new ClickAction(() => new AlertDialog.Builder(this)
+            .SetTitle("Shax collision APIs")
+            .SetMessage("Use entity.AddComponent(new BoxCollider()), SphereCollider or Rigidbody. Register ICollisionListener for Enter/Stay/Exit. Scene.Physics exposes gravity, fixed timestep and collision counts. This is a lightweight prototype solver, not a full UE5 Chaos replacement.")
+            .SetPositiveButton("OK", (_, _) => { }).Show()));
+        physicsActions.AddView(physicsDocs, new LinearLayout.LayoutParams(-2, -2));
+        var physicsRefresh = new Button(this) { Text = "Refresh status", TextSize = 11 };
+        physicsRefresh.SetOnClickListener(new ClickAction(() => {
+            if (_physicsSummary != null) _physicsSummary.Text = $"Entities: {_scene.Entities.Count} • Collisions last step: {_scene.Physics.CollisionCount} • Fixed step: {_scene.Physics.FixedDeltaTime:0.000}s";
+        }));
+        physicsActions.AddView(physicsRefresh, new LinearLayout.LayoutParams(-2, -2));
+        _physicsPanel.AddView(physicsActions);
+        _workspace.AddView(_physicsPanel, new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top));
+        _physicsPanel.Visibility = ViewStates.Gone;
+
         _status = Label("NET 10 • C# CORE • NATIVE GLES 3.2 / 3.0", 11, false);
         _status.SetPadding(10, 6, 10, 6);
         _root.AddView(_status, new LinearLayout.LayoutParams(-1, -2));
@@ -233,12 +260,14 @@ public sealed class MainActivity : Activity
         if (_importGlbButton != null) _importGlbButton.Visibility = panel == "assets" ? ViewStates.Visible : ViewStates.Gone;
         if (_consolePanel != null) _consolePanel.Visibility = panel == "console" ? ViewStates.Visible : ViewStates.Gone;
         if (_materialPanel != null) _materialPanel.Visibility = panel == "material" ? ViewStates.Visible : ViewStates.Gone;
+        if (_physicsPanel != null) _physicsPanel.Visibility = panel == "physics" ? ViewStates.Visible : ViewStates.Gone;
         if (panel == "scene") RefreshInspector();
         SetStatus(panel switch {
             "scene" => "Scene • hierarchy, transform inspector and live viewport",
             "script" => "Script IDE • restricted AOT-safe C# subset and diagnostics",
             "assets" => "Asset browser • project tree and GLB importer APIs",
             "material" => "Material • live PBR roughness and metallic controls",
+            "physics" => "Physics • collision API and fixed-step scene simulation",
             _ => "Console • native and editor messages"
         });
     }
@@ -329,6 +358,41 @@ public sealed class MainActivity : Activity
         RefreshInspector();
         ShowPanel("scene");
         SetStatus("Active scene: " + _scene.Name + " • saved independently to " + _sceneFileName);
+    }
+
+    private void ShowPhysicsPanel() => ShowPanel("physics");
+
+    private void ShowRenderLab()
+    {
+        // These are GLES-mobile look presets using the currently implemented PBR controls.
+        // They do not claim UE5-only features such as Lumen, Nanite or hardware ray tracing.
+        var profiles = new (string Name, float Roughness, float Metallic)[]
+        {
+            ("01 • UE5 Neutral Studio", .42f, .05f), ("02 • Cinematic Warm", .34f, .12f),
+            ("03 • Cool Moonlight", .62f, .08f), ("04 • Polished Metal", .18f, .92f),
+            ("05 • Brushed Aluminum", .38f, .78f), ("06 • Matte Clay", .88f, .02f),
+            ("07 • Glossy Ceramic", .16f, .04f), ("08 • Wet Surface", .12f, .18f),
+            ("09 • Soft Product Light", .48f, .06f), ("10 • High Contrast", .28f, .22f),
+            ("11 • Natural Daylight", .56f, .03f), ("12 • Sunset Warmth", .44f, .10f),
+            ("13 • Frosted Surface", .72f, .02f), ("14 • Dark Alloy", .30f, .68f),
+            ("15 • Performance Balanced", .50f, .08f)
+        };
+        var labels = profiles.Select(p => p.Name).ToArray();
+        new AlertDialog.Builder(this).SetTitle("Render Lab • 15 mobile profiles")
+            .SetItems(labels, (_, e) =>
+            {
+                var profile = profiles[e.Which];
+                _materialSettings.Roughness = profile.Roughness;
+                _materialSettings.Metallic = profile.Metallic;
+                if (_roughnessValue != null) _roughnessValue.Text = $"Roughness: {profile.Roughness:0.00}";
+                if (_metallicValue != null) _metallicValue.Text = $"Metallic: {profile.Metallic:0.00}";
+                if (_roughnessSeek != null) _roughnessSeek.Progress = Math.Clamp((int)MathF.Round(profile.Roughness * 96f), 4, 96);
+                if (_metallicSeek != null) _metallicSeek.Progress = Math.Clamp((int)MathF.Round(profile.Metallic * 100f), 0, 100);
+                _viewport?.SetMaterial(profile.Roughness, profile.Metallic);
+                SetStatus($"Render profile applied: {profile.Name}. Mobile GLES PBR approximation; UE5-only effects are not implied.");
+                ShowPanel("scene");
+            })
+            .SetNegativeButton("Cancel", (_, _) => { }).Show();
     }
 
     private void ShowCameraModes()
