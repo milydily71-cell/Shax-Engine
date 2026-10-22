@@ -1,38 +1,37 @@
 # Shax Engine
 
-**A mobile-first 3D game engine and editor built around OpenGL ES and a C# gameplay API.**
+Shax is a mobile-first 3D engine/editor prototype with a C# public API, .NET 10 Android host, and OpenGL ES rendering.
 
-Shax is being developed toward a native Android editor with a live 3D viewport, scene hierarchy, inspector, asset browser and Play mode. C# is the intended public engine API and gameplay scripting language.
+## Current source foundations
 
-## Current foundation
+- Engine-neutral C# core multi-targeting .NET Standard 2.1 and .NET 10
+- Entity/component and Transform contracts, Scene lifecycle tick, and primitive mesh data
+- Both using Shax; and a compatibility entry point under using ShaxEngine;
+- .NET 10 Android application project that references Shax.Core
+- Mobile shell with Scene, Script IDE source buffer, Play tick, and perspective cube/grid viewport
+- Java/Gradle prototype prefers an ES 3.2 EGL context, then falls back to ES 3.1 and ES 3.0
+- .NET Android host now requests ES 3.2 first, with ES 3.1 and ES 3.0 fallback
 
-- Architecture and staged implementation roadmap
-- Initial `Shax.Core` C# project
-- Minimal `Entity`, `Transform` and `ShaxBehaviour` lifecycle contracts
+These are source implementations, not yet a verified release. CI and physical-device builds must pass before the APK can be called working. Advanced ES 3.2-only rendering paths, a sky gradient in the .NET viewport, and editor-grade scripting remain in progress.
 
-These are starting points, not a finished engine. The Android app, GLES renderer, visible grid/sky/geometry, editor UI and C# script compiler are still planned and must be implemented and tested.
+## Build the .NET Android app
 
-## Target first viewport
+Install .NET 10 SDK, Java 17, and Android SDK, then run:
 
-- OpenGL ES 3.0 rendering on Android
-- Perspective camera and touch orbit/pan/zoom
-- Ground grid and XYZ axes
-- Zenith-to-horizon sky gradient
-- Cube and UV sphere geometry with depth testing
-- Basic directional light and material
-- Lifecycle-safe render surface
+    dotnet workload install android
+    dotnet restore src/Shax.Android/Shax.Android.csproj
+    dotnet publish src/Shax.Android/Shax.Android.csproj -c Release -f net10.0-android -p:AndroidPackageFormat=apk
 
-## Repository guide
+The CI workflow is .github/workflows/dotnet-android-build.yml. Check its run and artifact before installing.
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Roadmap](docs/ROADMAP.md)
-- [C# API design](docs/CSHARP_API_DESIGN.md)
-- [Shax.Core](src/Shax.Core/README.md)
+## Project guide
 
-## Direction
+- Architecture: docs/ARCHITECTURE.md
+- Roadmap: docs/ROADMAP.md
+- API and editor integration: docs/SHAX_API_AND_EDITOR.md
+- Core API: src/Shax.Core/README.md
+- .NET Android host: src/Shax.Android/README.md
 
-The engine should stay mobile-first: respect GPU and memory budgets, recover from OpenGL context loss, keep GL work on the render thread, and make projects portable. The renderer and editor should share a scene model, while editor-only gizmos and overlays remain separate from game builds.
+## Next editor/runtime milestones
 
-## License and contributions
-
-License and build/CI policy still need to be selected and documented before a public release.
+Add sky gradient and axis colors, orbit/pinch controls to the .NET viewport, selection and transform inspector, asset browser, script diagnostics, project save/load, and a secure C# compilation pipeline.
