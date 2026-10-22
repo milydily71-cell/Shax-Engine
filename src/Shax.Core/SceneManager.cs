@@ -1,7 +1,7 @@
 namespace Shax;
 
 /// <summary>Owns named scenes and provides explicit active-scene switching for editor/runtime workflows.</summary>
-public sealed class SceneManager
+public class SceneManager
 {
     private readonly Dictionary<string, Scene> _scenes = new(StringComparer.OrdinalIgnoreCase);
     public Scene? ActiveScene { get; private set; }
