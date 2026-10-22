@@ -319,7 +319,7 @@ void modelMatrix(float* m, const float* transform) {
 }
 extern "C" __attribute__((visibility("default"))) int shax_init() {
     // EGL context recreation invalidates all prior GL object names.
-    sceneProgram=0; pbrProgram=0; skyProgram=0; sceneVbo=0; cubeVbo=0; environmentCube=0; importedVbo=0; importedEbo=0;
+    sceneProgram=0; pbrProgram=0; skyProgram=0; sceneVbo=0; cubeVbo=0; environmentCube=0; importedVbo=0; importedEbo=0; importedBaseColorTexture=0;
     importedIndexCount=0; skinMatrixCount=0; std::fill(std::begin(skinMatrices),std::end(skinMatrices),0.0f);
     gpuTimingEnabled=false; gpuQueryActive=false; gpuQueryCursor=0; gpuTimingFrame=0;
     std::fill(std::begin(gpuQueries),std::end(gpuQueries),0u); std::fill(std::begin(gpuQueryPending),std::end(gpuQueryPending),false);
@@ -510,6 +510,7 @@ extern "C" __attribute__((visibility("default"))) void shax_shutdown() {
     if (skyProgram) glDeleteProgram(skyProgram);
     if (importedVbo) glDeleteBuffers(1,&importedVbo);
     if (importedEbo) glDeleteBuffers(1,&importedEbo);
+    if (importedBaseColorTexture) glDeleteTextures(1,&importedBaseColorTexture);
     if (gpuTimingEnabled && deleteQueriesExt) deleteQueriesExt(4, gpuQueries);
     gpuTimingEnabled = false; gpuQueryActive = false;
     for (int i=0;i<4;i++) { gpuQueries[i]=0; gpuQueryPending[i]=false; }
