@@ -9,6 +9,7 @@
     <ApplicationDisplayVersion>0.3.0</ApplicationDisplayVersion>
     <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
     <TargetSdkVersion>35</TargetSdkVersion>
+    <AndroidUseAssemblyStore>false</AndroidUseAssemblyStore>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
