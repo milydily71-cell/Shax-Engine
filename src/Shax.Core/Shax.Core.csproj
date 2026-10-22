@@ -7,4 +7,4 @@
     <AssemblyName>Shax.Core</AssemblyName>
     <RootNamespace>Shax</RootNamespace>
   </PropertyGroup>
-</Project>
+  <ItemGroup>\n    <PackageReference Include="System.Text.Json" Version="8.0.5" />\n  </ItemGroup>\n</Project>
