@@ -159,13 +159,13 @@ public sealed class MainActivity : Activity
         _materialPanel.AddView(Label("Metallic-roughness Cook-Torrance BRDF with procedural environment-cubemap IBL", 12, false));
         _roughnessValue = Label("Roughness: 0.28", 13, false);
         _materialPanel.AddView(_roughnessValue);
-        _roughnessSeek = new SeekBar(this) { Max = 96, Progress = 24 };
+        _roughnessSeek = new SeekBar(this) { Max = 96, Progress = 27 };
         _roughnessSeek.ProgressChanged += (_, e) => { if (e.FromUser) { var value = Math.Clamp(e.Progress / 96f, 0.04f, 1f); if (_roughnessValue != null) _roughnessValue.Text = $"Roughness: {value:0.00}"; _viewport?.SetMaterial(value, (_metallicSeek?.Progress ?? 8) / 100f); } };
         _materialPanel.AddView(_roughnessSeek);
         _metallicValue = Label("Metallic: 0.08", 13, false);
         _materialPanel.AddView(_metallicValue);
         _metallicSeek = new SeekBar(this) { Max = 100, Progress = 8 };
-        _metallicSeek.ProgressChanged += (_, e) => { if (e.FromUser) { var value = e.Progress / 100f; if (_metallicValue != null) _metallicValue.Text = $"Metallic: {value:0.00}"; _viewport?.SetMaterial((_roughnessSeek?.Progress ?? 24) / 96f, value); } };
+        _metallicSeek.ProgressChanged += (_, e) => { if (e.FromUser) { var value = e.Progress / 100f; if (_metallicValue != null) _metallicValue.Text = $"Metallic: {value:0.00}"; _viewport?.SetMaterial((_roughnessSeek?.Progress ?? 27) / 96f, value); } };
         _materialPanel.AddView(_metallicSeek);
         _workspace.AddView(_materialPanel, new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top));
         _materialPanel.Visibility = ViewStates.Gone;
@@ -242,7 +242,7 @@ public sealed class MainActivity : Activity
             }
             var imported = GlbAssetImporter.Import(staging, Path.Combine(FilesDir!.AbsolutePath, "Assets"));
             if (_assetPanel != null)
-                _assetPanel.Text = $"ASSET BROWSER\\n\\nImported: {Path.GetFileName(imported.AssetPath)}\\nSize: {imported.FileSize:N0} bytes\\nMeshes: {imported.MeshCount}\\nMaterials: {imported.MaterialCount}\\nTextures: {imported.TextureCount}\\nImages: {imported.ImageCount}\\nNodes: {imported.NodeCount}\\nAnimations: {imported.AnimationCount}\\n\\nGLB 2.0 container validated and copied into app-private Assets/. Mesh decoding/GPU upload is not yet connected.";
+                _assetPanel.Text = $"ASSET BROWSER\n\nImported: {Path.GetFileName(imported.AssetPath)}\nSize: {imported.FileSize:N0} bytes\\nMeshes: {imported.MeshCount}\nMaterials: {imported.MaterialCount}\nTextures: {imported.TextureCount}\nImages: {imported.ImageCount}\nNodes: {imported.NodeCount}\nAnimations: {imported.AnimationCount}\n\nGLB 2.0 container validated and copied into app-private Assets/. Mesh decoding/GPU upload is not yet connected.";
             SetStatus($"GLB metadata validated: {imported.MeshCount} mesh records, {imported.MaterialCount} materials. Geometry upload is not implemented yet.");
         }
         catch (Exception ex)
