@@ -8,6 +8,7 @@
 #include <vector>
 
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "ShaxNative", __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "ShaxNative", __VA_ARGS__)
 namespace {
 GLuint sceneProgram = 0, pbrProgram = 0, skyProgram = 0, sceneVbo = 0, cubeVbo = 0, environmentCube = 0;
 GLint sceneMvp = -1, pbrMvp = -1, pbrModel = -1, pbrEnvironment = -1, pbrCamera = -1, pbrLight = -1, pbrRoughness = -1, pbrMetallic = -1;
@@ -32,7 +33,7 @@ GLuint compile(GLenum type, const char* source) {
     }
     return shader;
 }
-GLuint link(const char* vsSource, const char* fsSource) {
+GLuint linkProgram(const char* vsSource, const char* fsSource) {
     GLuint vs = compile(GL_VERTEX_SHADER, vsSource), fs = compile(GL_FRAGMENT_SHADER, fsSource);
     if (!vs || !fs) { if (vs) glDeleteShader(vs); if (fs) glDeleteShader(fs); return 0; }
     GLuint p = glCreateProgram();
@@ -203,7 +204,7 @@ void modelMatrix(float* m, const float* transform) {
 }
 }
 extern "C" __attribute__((visibility("default"))) int shax_init() {
-    sceneProgram = link(sceneVs,sceneFs); pbrProgram=link(pbrVs,pbrFs); skyProgram=link(skyVs,skyFs);
+    sceneProgram = linkProgram(sceneVs,sceneFs); pbrProgram=linkProgram(pbrVs,pbrFs); skyProgram=linkProgram(skyVs,skyFs);
     if (!sceneProgram || !pbrProgram || !skyProgram) return 0;
     sceneMvp=glGetUniformLocation(sceneProgram,"uMvp");
     pbrMvp=glGetUniformLocation(pbrProgram,"uMvp"); pbrModel=glGetUniformLocation(pbrProgram,"uModel");
