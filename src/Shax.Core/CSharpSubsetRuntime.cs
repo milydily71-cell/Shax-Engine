@@ -136,4 +136,13 @@ public sealed class ScriptProgram
 }
 
 internal enum ScriptInstructionKind { Rotate, SetPosition, SetScale }
-internal sealed record ScriptInstruction(ScriptInstructionKind Kind, Vector3 Vector, float Scalar);
+internal sealed class ScriptInstruction
+{
+    public ScriptInstructionKind Kind { get; }
+    public Vector3 Vector { get; }
+    public float Scalar { get; }
+    public ScriptInstruction(ScriptInstructionKind kind, Vector3 vector, float scalar)
+    {
+        Kind = kind; Vector = vector; Scalar = scalar;
+    }
+}
