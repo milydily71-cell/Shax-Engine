@@ -44,18 +44,19 @@ A checked box means the source implementation exists. Build/device verification 
 - [x] Core tests cover supported rotation behaviour and blocked file APIs
 - [ ] Verify user-edited behaviour changes the rendered cube in the APK/emulator run
 - [ ] Expand safe syntax only with tests; general Roslyn/full-language support remains out of scope until a compatible runtime is proven
-- [ ] Multi-file project tree backed by real files
+- [x] Multi-file C# project tree backed by app-private script files
 - [ ] Multi-file project tree backed by real files
 
 ## Milestone 4 — integrated mobile editor
 - [x] Scene hierarchy prototype and selected-entity transform inspector
-- [x] Position undo/redo and scene/script save on pause
+- [x] Full transform undo/redo snapshots, atomic scene/script/material saves, and autosave on edits/pause
 - [x] Asset-browser and console panels (initial shell)
 - [x] GLB 2.0 container validation, safe app-private staging/copy, and mesh/material/texture/node/animation metadata reporting
 - [ ] Decode glTF accessors, upload imported meshes/textures to GPU, generate thumbnails and maintain a persistent asset metadata cache
 - [x] Position, rotation and scale inspector controls
 - [ ] GPU-backed selection/picking and interactive translate/rotate/scale gizmos
-- [ ] Play/stop state, full command history, autosave recovery and multi-scene workflow
+- [x] Play/stop controls, transform command history, and autosave on edits/pause
+- [ ] Multi-scene workflow and crash-recovery restore UI
 
 ## Milestone 5 — rendering and production
 - [x] Native C++ shared library and GLES 3.0-compatible baseline
