@@ -28,6 +28,8 @@ public sealed class MainActivity : Activity
     private LinearLayout? _hierarchyPanel;
     private LinearLayout? _scriptPanel;
     private TextView? _assetPanel;
+    private Button? _importGlbButton;
+    private const int RequestImportGlb = 4107;
     private TextView? _consolePanel;
     private LinearLayout? _materialPanel;
     private TextView? _roughnessValue, _metallicValue;
@@ -122,7 +124,11 @@ public sealed class MainActivity : Activity
         _assetPanel.SetPadding(16, 16, 16, 16);
         _assetPanel.SetBackgroundColor(global::Android.Graphics.Color.Rgb(24, 30, 40));
         _workspace.AddView(_assetPanel, new FrameLayout.LayoutParams(-1, -1));
+        _importGlbButton = new Button(this) { Text = "Import GLB model…" };
+        _importGlbButton.SetOnClickListener(new ClickAction(PickGlbAsset));
+        _workspace.AddView(_importGlbButton, new FrameLayout.LayoutParams(-2, -2, GravityFlags.Bottom | GravityFlags.CenterHorizontal));
         _assetPanel.Visibility = ViewStates.Gone;
+        _importGlbButton.Visibility = ViewStates.Gone;
 
         _consolePanel = Label("CONSOLE\nShax Engine starting…", 12, false);
         _consolePanel.SetPadding(16, 16, 16, 16);
@@ -183,6 +189,7 @@ public sealed class MainActivity : Activity
         if (_scriptPanel != null) _scriptPanel.Visibility = panel == "script" ? ViewStates.Visible : ViewStates.Gone;
         if (_hierarchyPanel != null) _hierarchyPanel.Visibility = panel == "scene" ? ViewStates.Visible : ViewStates.Gone;
         if (_assetPanel != null) _assetPanel.Visibility = panel == "assets" ? ViewStates.Visible : ViewStates.Gone;
+        if (_importGlbButton != null) _importGlbButton.Visibility = panel == "assets" ? ViewStates.Visible : ViewStates.Gone;
         if (_consolePanel != null) _consolePanel.Visibility = panel == "console" ? ViewStates.Visible : ViewStates.Gone;
         if (_materialPanel != null) _materialPanel.Visibility = panel == "material" ? ViewStates.Visible : ViewStates.Gone;
         if (panel == "scene") RefreshInspector();
@@ -193,6 +200,41 @@ public sealed class MainActivity : Activity
             "material" => "Material • live PBR roughness and metallic controls",
             _ => "Console • native and editor messages"
         });
+    }
+
+
+    private void PickGlbAsset()
+    {
+        var intent = new Intent(Intent.ActionOpenDocument);
+        intent.AddCategory(Intent.CategoryOpenable);
+        intent.SetType("model/gltf-binary");
+        StartActivityForResult(Intent.CreateChooser(intent, "Import GLB model"), RequestImportGlb);
+    }
+
+    protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
+    {
+        base.OnActivityResult(requestCode, resultCode, data);
+        if (requestCode != RequestImportGlb || resultCode != Result.Ok || data?.Data is null) return;
+        var staging = Path.Combine(CacheDir!.AbsolutePath, "shax-import-" + Guid.NewGuid().ToString("N") + ".glb");
+        try
+        {
+            using (var input = ContentResolver!.OpenInputStream(data.Data))
+            using (var output = File.Create(staging))
+            {
+                if (input is null) throw new InvalidOperationException("Android could not open the selected document.");
+                input.CopyTo(output);
+            }
+            var imported = GlbAssetImporter.Import(staging, Path.Combine(FilesDir!.AbsolutePath, "Assets"));
+            if (_assetPanel != null)
+                _assetPanel.Text = $"ASSET BROWSER\\n\\nImported: {Path.GetFileName(imported.AssetPath)}\\nSize: {imported.FileSize:N0} bytes\\nMeshes: {imported.MeshCount}\\nMaterials: {imported.MaterialCount}\\nTextures: {imported.TextureCount}\\nImages: {imported.ImageCount}\\nNodes: {imported.NodeCount}\\nAnimations: {imported.AnimationCount}\\n\\nGLB 2.0 container validated and copied into app-private Assets/. Mesh decoding/GPU upload is not yet connected.";
+            SetStatus($"GLB metadata validated: {imported.MeshCount} mesh records, {imported.MaterialCount} materials. Geometry upload is not implemented yet.");
+        }
+        catch (Exception ex)
+        {
+            SetStatus("GLB import failed: " + ex.Message);
+            global::Android.Util.Log.Error("ShaxEngine", "GLB import failed: " + ex);
+        }
+        finally { if (File.Exists(staging)) File.Delete(staging); }
     }
 
     private void RefreshInspector()
