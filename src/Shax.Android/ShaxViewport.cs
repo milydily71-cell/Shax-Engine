@@ -130,7 +130,7 @@ public sealed class ShaxViewport : GLSurfaceView
                 if (major != 3 || (minor != 0 && minor != 2) || (_forceGles30 && minor != 0))
                     throw new InvalidOperationException("Shax accepts only OpenGL ES 3.2 or ES 3.0; active driver is " + version);
                 if (NativeInit() == 0) throw new InvalidOperationException("Native GLES renderer initialization failed.");
-                global::Android.Util.Log.Info("ShaxEngine", "Native libshax.so renderer initialized.");
+                global::Android.Util.Log.Info("ShaxEngine", "Active OpenGL ES driver: " + version + ". Native libshax.so renderer initialized.");
                 _startMilliseconds = Java.Lang.JavaSystem.CurrentTimeMillis();
                 NativeResize(_width, _height);
             }
