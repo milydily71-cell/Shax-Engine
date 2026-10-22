@@ -50,7 +50,7 @@ public sealed class MainActivity : Activity
     private void BuildEditorShell()
     {
         _root = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        _root.SetBackgroundColor(Android.Graphics.Color.Rgb(18, 22, 30));
+        _root.SetBackgroundColor(global::Android.Graphics.Color.Rgb(18, 22, 30));
         var toolbarScroll = new HorizontalScrollView(this) { HorizontalScrollBarEnabled = true };
         var toolbar = new LinearLayout(this) { Orientation = Orientation.Horizontal };
         toolbar.SetPadding(5, 3, 5, 3);
@@ -74,17 +74,16 @@ public sealed class MainActivity : Activity
         _workspace.AddView(_viewport, new FrameLayout.LayoutParams(-1, -1));
 
         _scriptPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        _scriptPanel.SetBackgroundColor(Android.Graphics.Color.Rgb(25, 31, 42));
+        _scriptPanel.SetBackgroundColor(global::Android.Graphics.Color.Rgb(25, 31, 42));
         _scriptEditor = new EditText(this)
         {
             Text = ScriptDocument.DefaultSource,
             Gravity = GravityFlags.Top | GravityFlags.Left,
-            Typeface = Android.Graphics.Typeface.Monospace,
+            Typeface = global::Android.Graphics.Typeface.Monospace,
             TextSize = 13,
-            SingleLine = false
         };
-        _scriptEditor.SetTextColor(Android.Graphics.Color.Rgb(225, 233, 245));
-        _scriptEditor.SetBackgroundColor(Android.Graphics.Color.Rgb(25, 31, 42));
+        _scriptEditor.SetTextColor(global::Android.Graphics.Color.Rgb(225, 233, 245));
+        _scriptEditor.SetBackgroundColor(global::Android.Graphics.Color.Rgb(25, 31, 42));
         _scriptEditor.SetPadding(12, 12, 12, 12);
         _scriptPanel.AddView(_scriptEditor, new LinearLayout.LayoutParams(-1, 0, 1));
         _diagnostics = Label("Diagnostics: waiting for edits", 11, false);
@@ -96,7 +95,7 @@ public sealed class MainActivity : Activity
 
         _hierarchyPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
         _hierarchyPanel.SetPadding(12, 10, 12, 10);
-        _hierarchyPanel.SetBackgroundColor(Android.Graphics.Color.Rgb(24, 30, 40));
+        _hierarchyPanel.SetBackgroundColor(global::Android.Graphics.Color.Rgb(24, 30, 40));
         _hierarchyPanel.AddView(Label("SCENE HIERARCHY", 14, true));
         _hierarchyPanel.AddView(Label("▾ Main Scene", 13, true));
         var cubeButton = new Button(this) { Text = "  ◈ Cube (selected)", Gravity = GravityFlags.Left };
@@ -115,13 +114,13 @@ public sealed class MainActivity : Activity
 
         _assetPanel = Label("ASSET BROWSER\n\nScripts/\n  PlayerScript.cs\n\nScenes/\n  MainScene.shax.json\n\nTextures/\n  Image import pending\n\nModels/\n  GLB/glTF importer pending", 14, false);
         _assetPanel.SetPadding(16, 16, 16, 16);
-        _assetPanel.SetBackgroundColor(Android.Graphics.Color.Rgb(24, 30, 40));
+        _assetPanel.SetBackgroundColor(global::Android.Graphics.Color.Rgb(24, 30, 40));
         _workspace.AddView(_assetPanel, new FrameLayout.LayoutParams(-1, -1));
         _assetPanel.Visibility = ViewStates.Gone;
 
         _consolePanel = Label("CONSOLE\nShax Engine starting…", 12, false);
         _consolePanel.SetPadding(16, 16, 16, 16);
-        _consolePanel.SetBackgroundColor(Android.Graphics.Color.Rgb(15, 19, 26));
+        _consolePanel.SetBackgroundColor(global::Android.Graphics.Color.Rgb(15, 19, 26));
         _workspace.AddView(_consolePanel, new FrameLayout.LayoutParams(-1, -1));
         _consolePanel.Visibility = ViewStates.Gone;
 
@@ -135,15 +134,15 @@ public sealed class MainActivity : Activity
     private EditText NumberField(string label) => new(this)
     {
         Hint = label,
-        InputType = Android.Text.InputTypes.ClassNumber | Android.Text.InputTypes.NumberFlagDecimal | Android.Text.InputTypes.NumberFlagSigned,
+        InputType = global::Android.Text.InputTypes.ClassNumber | global::Android.Text.InputTypes.NumberFlagDecimal | global::Android.Text.InputTypes.NumberFlagSigned,
         TextSize = 14
     };
 
     private TextView Label(string text, float size, bool bold)
     {
         var label = new TextView(this) { Text = text, TextSize = size, Gravity = GravityFlags.CenterVertical };
-        label.SetTextColor(Android.Graphics.Color.Rgb(225, 233, 245));
-        if (bold) label.SetTypeface(Android.Graphics.Typeface.Default, Android.Graphics.TypefaceStyle.Bold);
+        label.SetTextColor(global::Android.Graphics.Color.Rgb(225, 233, 245));
+        if (bold) label.SetTypeface(global::Android.Graphics.Typeface.Default, global::Android.Graphics.TypefaceStyle.Bold);
         return label;
     }
 
@@ -235,19 +234,20 @@ public sealed class MainActivity : Activity
 
     private void ApplySyntaxHighlighting()
     {
-        if (_highlighting || _scriptEditor?.Text is not IEditable editable) return;
+        if (_highlighting || _scriptEditor is null) return;
+        var editable = _scriptEditor.EditableText;
         _highlighting = true;
         try
         {
-            var existing = editable.GetSpans(0, editable.Length, Java.Lang.Class.FromType(typeof(ForegroundColorSpan)));
+            var existing = editable.GetSpans(0, editable.Length(), Java.Lang.Class.FromType(typeof(ForegroundColorSpan)));
             foreach (var span in existing) editable.RemoveSpan(span);
             var source = editable.ToString() ?? string.Empty;
             var keywords = new Regex(@"\b(using|namespace|public|private|protected|class|sealed|override|virtual|void|float|int|return|new|this|var)\b");
             foreach (Match match in keywords.Matches(source))
-                editable.SetSpan(new ForegroundColorSpan(Android.Graphics.Color.Rgb(112, 174, 255)), match.Index, match.Index + match.Length, SpanTypes.ExclusiveExclusive);
+                editable.SetSpan(new ForegroundColorSpan(global::Android.Graphics.Color.Rgb(112, 174, 255)), match.Index, match.Index + match.Length, SpanTypes.ExclusiveExclusive);
             var comments = new Regex(@"//[^\r\n]*");
             foreach (Match match in comments.Matches(source))
-                editable.SetSpan(new ForegroundColorSpan(Android.Graphics.Color.Rgb(117, 165, 127)), match.Index, match.Index + match.Length, SpanTypes.ExclusiveExclusive);
+                editable.SetSpan(new ForegroundColorSpan(global::Android.Graphics.Color.Rgb(117, 165, 127)), match.Index, match.Index + match.Length, SpanTypes.ExclusiveExclusive);
         }
         finally { _highlighting = false; }
     }
