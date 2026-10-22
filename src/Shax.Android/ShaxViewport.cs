@@ -238,6 +238,7 @@ public sealed class ShaxViewport : GLSurfaceView
             _importedAsset = null;
             _hasSkinWeights = false;
             NativeClearImportedMesh();
+            NativeClearBaseColorTexture();
             NativeSetSkinMatrices(Array.Empty<float>(), 0);
         }
 
