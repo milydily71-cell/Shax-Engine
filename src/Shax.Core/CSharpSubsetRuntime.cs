@@ -27,6 +27,8 @@ public static class CSharpSubsetRuntime
         var diagnostics = new List<ScriptDiagnostic>();
         if (string.IsNullOrWhiteSpace(source))
             return Failure("Script source is empty.", 1, 1);
+        if (source.Length > 65_536)
+            return Failure("Script exceeds the 64 KiB source limit.", 1, 1);
 
         var clean = Comments.Replace(source, string.Empty);
         foreach (var token in ForbiddenTokens)
@@ -59,7 +61,10 @@ public static class CSharpSubsetRuntime
             var rotate = Rotate.Match(statement);
             if (rotate.Success)
             {
-                var speed = Parse(rotate.Groups["speed"].Value);
+                if (instructions.Count >= 256) return Failure("Script exceeds the 256-instruction limit.", line, column);
+                float speed;
+                try { speed = Parse(rotate.Groups["speed"].Value); }
+                catch (FormatException) { return Failure("Rotation speed must be a finite number.", line, column); }
                 var axis = rotate.Groups["axis"].Value switch { "X" => Vector3.UnitX, "Y" => Vector3.UnitY, _ => Vector3.UnitZ };
                 instructions.Add(new ScriptInstruction(ScriptInstructionKind.Rotate, axis, speed));
                 continue;
@@ -67,7 +72,10 @@ public static class CSharpSubsetRuntime
             var assignment = VectorAssignment.Match(statement);
             if (assignment.Success)
             {
-                var value = new Vector3(Parse(assignment.Groups["x"].Value), Parse(assignment.Groups["y"].Value), Parse(assignment.Groups["z"].Value));
+                if (instructions.Count >= 256) return Failure("Script exceeds the 256-instruction limit.", line, column);
+                Vector3 value;
+                try { value = new Vector3(Parse(assignment.Groups["x"].Value), Parse(assignment.Groups["y"].Value), Parse(assignment.Groups["z"].Value)); }
+                catch (FormatException) { return Failure("Vector values must be finite numbers.", line, column); }
                 var kind = assignment.Groups["property"].Value == "LocalPosition" ? ScriptInstructionKind.SetPosition : ScriptInstructionKind.SetScale;
                 instructions.Add(new ScriptInstruction(kind, value, 0));
                 continue;
@@ -80,7 +88,12 @@ public static class CSharpSubsetRuntime
         return new ScriptCompilationResult(new ScriptProgram(instructions), diagnostics);
     }
 
-    private static float Parse(string value) => float.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture);
+    private static float Parse(string value)
+    {
+        var parsed = float.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture);
+        if (float.IsNaN(parsed) || float.IsInfinity(parsed)) throw new FormatException("Non-finite numbers are not allowed.");
+        return parsed;
+    }
     private static ScriptCompilationResult Failure(string message, int line, int column) =>
         new(null, new[] { new ScriptDiagnostic("SHAX0001", message, line, column, ScriptDiagnosticSeverity.Error) });
 
