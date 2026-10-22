@@ -16,7 +16,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Shax.Core/Shax.Core.csproj" />
-    <AndroidNativeLibrary Include="native-libs/arm64-v8a/libshax.so" Abi="arm64-v8a" />
-    <AndroidNativeLibrary Include="native-libs/x86_64/libshax.so" Abi="x86_64" />
   </ItemGroup>
 </Project>
