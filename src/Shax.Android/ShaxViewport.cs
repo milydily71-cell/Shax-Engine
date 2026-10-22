@@ -222,6 +222,117 @@ public sealed class ShaxViewport : GLSurfaceView
 
         public void SetCameraMode(CameraMode mode) => _cameraMode = mode;
 
+        public void SetImportedAsset(GltfAsset asset)
+        {
+            _importedAsset = asset ?? throw new ArgumentNullException(nameof(asset));
+            _animationTime = 0;
+            UploadImportedAsset(asset);
+        }
+
+        public void ClearImportedAsset()
+        {
+            _importedAsset = null;
+            _hasSkinWeights = false;
+            NativeClearImportedMesh();
+            NativeSetSkinMatrices(Array.Empty<float>(), 0);
+        }
+
+        private void UploadImportedAsset(GltfAsset asset)
+        {
+            var primitives = asset.Meshes.SelectMany(m => m.Primitives).Where(p => p.Positions.Length > 0).ToArray();
+            if (primitives.Length == 0) { NativeClearImportedMesh(); return; }
+            var vertices = new List<float>();
+            var indices = new List<uint>();
+            _hasSkinWeights = asset.Skins.Count > 0 && primitives.Any(p => p.Joints0.Length == p.VertexCount && p.Weights0.Length == p.VertexCount);
+            foreach (var primitive in primitives)
+            {
+                var triangleIndices = Triangulate(primitive);
+                if (triangleIndices.Length == 0) continue;
+                var normals = primitive.Normals.Length == primitive.VertexCount ? primitive.Normals : GenerateNormals(primitive.Positions, triangleIndices);
+                var material = (uint)primitive.MaterialIndex < (uint)asset.Materials.Count ? asset.Materials[primitive.MaterialIndex] : null;
+                var color = material?.BaseColor ?? new Vector4(0.65f, 0.72f, 0.82f, 1f);
+                var vertexBase = (uint)(vertices.Count / 17);
+                for (var i = 0; i < primitive.VertexCount; i++)
+                {
+                    var p = primitive.Positions[i];
+                    var n = normals[i];
+                    var j = primitive.Joints0.Length == primitive.VertexCount ? primitive.Joints0[i] : Vector4.Zero;
+                    var w = primitive.Weights0.Length == primitive.VertexCount ? primitive.Weights0[i] : Vector4.Zero;
+                    var sum = w.X + w.Y + w.Z + w.W;
+                    if (sum > 1e-6f) w /= sum;
+                    vertices.AddRange(new[] { p.X,p.Y,p.Z,n.X,n.Y,n.Z,color.X,color.Y,color.Z,j.X,j.Y,j.Z,j.W,w.X,w.Y,w.Z,w.W });
+                }
+                foreach (var index in triangleIndices)
+                {
+                    if (index >= primitive.VertexCount) throw new InvalidDataException("GLB mesh index is outside its vertex accessor.");
+                    indices.Add(vertexBase + index);
+                }
+            }
+            if (vertices.Count == 0 || indices.Count == 0) { NativeClearImportedMesh(); return; }
+            var uploaded = NativeUploadMesh(vertices.ToArray(), vertices.Count / 17, indices.ToArray(), indices.Count);
+            if (uploaded == 0) throw new InvalidOperationException("Native GPU upload rejected the imported GLB mesh.");
+            if (_hasSkinWeights) UpdateImportedSkin(0);
+            else NativeSetSkinMatrices(Array.Empty<float>(), 0);
+            global::Android.Util.Log.Info("ShaxEngine", $"Uploaded GLB geometry: {vertices.Count / 17} vertices, {indices.Count / 3} triangles.");
+        }
+
+        private void UpdateImportedSkin(float deltaTime)
+        {
+            if (!_hasSkinWeights || _importedAsset is null || _importedAsset.Skins.Count == 0) return;
+            if (_importedAsset.Animations.Count > 0)
+            {
+                _animationTime += MathF.Max(0, deltaTime);
+                _importedAsset.Animations[0].Apply(_animationTime, _importedAsset.Nodes);
+            }
+            var matrices = _importedAsset.Skins[0].BuildJointMatrices(_importedAsset.Nodes);
+            var count = Math.Min(32, matrices.Length);
+            var packed = new float[count * 16];
+            for (var i = 0; i < count; i++)
+            {
+                var m = matrices[i]; var o = i * 16;
+                packed[o]=m.M11; packed[o+1]=m.M12; packed[o+2]=m.M13; packed[o+3]=m.M14;
+                packed[o+4]=m.M21; packed[o+5]=m.M22; packed[o+6]=m.M23; packed[o+7]=m.M24;
+                packed[o+8]=m.M31; packed[o+9]=m.M32; packed[o+10]=m.M33; packed[o+11]=m.M34;
+                packed[o+12]=m.M41; packed[o+13]=m.M42; packed[o+14]=m.M43; packed[o+15]=m.M44;
+            }
+            NativeSetSkinMatrices(packed, count);
+        }
+
+        private static uint[] Triangulate(GltfPrimitive primitive)
+        {
+            var src = primitive.Indices;
+            if (primitive.Mode == 4) return src.Length % 3 == 0 ? src : Array.Empty<uint>();
+            var output = new List<uint>();
+            if (primitive.Mode == 5)
+            {
+                for (var i = 2; i < src.Length; i++)
+                {
+                    if ((i & 1) == 0) { output.Add(src[i-2]); output.Add(src[i-1]); output.Add(src[i]); }
+                    else { output.Add(src[i-1]); output.Add(src[i-2]); output.Add(src[i]); }
+                }
+            }
+            else if (primitive.Mode == 6)
+            {
+                for (var i = 2; i < src.Length; i++) { output.Add(src[0]); output.Add(src[i-1]); output.Add(src[i]); }
+            }
+            return output.ToArray();
+        }
+
+        private static Vector3[] GenerateNormals(Vector3[] positions, uint[] indices)
+        {
+            var normals = new Vector3[positions.Length];
+            for (var i = 0; i + 2 < indices.Length; i += 3)
+            {
+                var a = checked((int)indices[i]); var b = checked((int)indices[i+1]); var d = checked((int)indices[i+2]);
+                if ((uint)a >= (uint)positions.Length || (uint)b >= (uint)positions.Length || (uint)d >= (uint)positions.Length) continue;
+                var n = Vector3.Cross(positions[b] - positions[a], positions[d] - positions[a]);
+                normals[a] += n; normals[b] += n; normals[d] += n;
+            }
+            for (var i = 0; i < normals.Length; i++)
+                normals[i] = normals[i].LengthSquared() > 1e-8f ? Vector3.Normalize(normals[i]) : Vector3.UnitY;
+            return normals;
+        }
+
         public void SetMaterial(float roughness, float metallic)
         {
             _roughness = Math.Clamp(roughness, 0.04f, 1f);
