@@ -1,7 +1,12 @@
 namespace Shax;
 
 /// <summary>CPU-side mesh data. Renderer-specific GPU upload is handled by the graphics backend.</summary>
-public sealed record MeshData(float[] Positions, uint[] Indices);
+public sealed class MeshData
+{
+    public float[] Positions { get; }
+    public uint[] Indices { get; }
+    public MeshData(float[] positions, uint[] indices) { Positions = positions; Indices = indices; }
+}
 
 public static class PrimitiveGeometry
 {
