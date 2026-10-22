@@ -316,7 +316,10 @@ void modelMatrix(float* m, const float* transform) {
 }
 extern "C" __attribute__((visibility("default"))) int shax_init() {
     // EGL context recreation invalidates all prior GL object names.
-    sceneProgram=0; pbrProgram=0; skyProgram=0; sceneVbo=0; cubeVbo=0; environmentCube=0;
+    sceneProgram=0; pbrProgram=0; skyProgram=0; sceneVbo=0; cubeVbo=0; environmentCube=0; importedVbo=0; importedEbo=0;
+    importedIndexCount=0; skinMatrixCount=0; std::fill(std::begin(skinMatrices),std::end(skinMatrices),0.0f);
+    gpuTimingEnabled=false; gpuQueryActive=false; gpuQueryCursor=0; gpuTimingFrame=0;
+    std::fill(std::begin(gpuQueries),std::end(gpuQueries),0u); std::fill(std::begin(gpuQueryPending),std::end(gpuQueryPending),false);
     sceneProgram = linkProgram(sceneVs,sceneFs); pbrProgram=linkProgram(pbrVs,pbrFs); skyProgram=linkProgram(skyVs,skyFs);
     if (!sceneProgram || !pbrProgram || !skyProgram) return 0;
     sceneMvp=glGetUniformLocation(sceneProgram,"uMvp");
@@ -370,7 +373,10 @@ extern "C" __attribute__((visibility("default"))) void shax_draw(const float* vi
     float mvp[16]{};
     for(int col=0;col<4;col++) for(int row=0;row<4;row++)
       for(int k=0;k<4;k++) mvp[col*4+row]+=viewProjection[k*4+row]*model[col*4+k];
-    glUseProgram(pbrProgram); glBindBuffer(GL_ARRAY_BUFFER,cubeVbo);
+    glUseProgram(pbrProgram);
+    if (pbrSkinned>=0) glUniform1i(pbrSkinned,0);
+    if (pbrJointCount>=0) glUniform1i(pbrJointCount,0);
+    glBindBuffer(GL_ARRAY_BUFFER,cubeVbo);
     glEnableVertexAttribArray(0); glEnableVertexAttribArray(1); glEnableVertexAttribArray(2);
     glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,9*sizeof(float),nullptr);
     glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,9*sizeof(float),reinterpret_cast<void*>(3*sizeof(float)));
