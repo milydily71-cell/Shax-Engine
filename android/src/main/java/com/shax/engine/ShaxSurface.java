@@ -21,10 +21,12 @@ final class ShaxSurface extends GLSurfaceView {
             private final int EGL_CONTEXT_MAJOR_VERSION_KHR = 0x3098;
             private final int EGL_CONTEXT_MINOR_VERSION_KHR = 0x30FB;
             private EGLContext tryContext(EGL10 egl, EGLDisplay display, EGLConfig config, int minor) {
-                int[] attrs = minor == 0
-                    ? new int[]{EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL10.EGL_NONE}
-                    : new int[]{EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL_CONTEXT_MINOR_VERSION_KHR, minor, EGL10.EGL_NONE};
-                return egl.eglCreateContext(display, config, EGL10.EGL_NO_CONTEXT, attrs);
+                int[] attrs = new int[]{EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL_CONTEXT_MINOR_VERSION_KHR, minor, EGL10.EGL_NONE};
+                EGLContext requested = egl.eglCreateContext(display, config, EGL10.EGL_NO_CONTEXT, attrs);
+                if (requested != null && requested != EGL10.EGL_NO_CONTEXT) return requested;
+                if (minor == 0) return egl.eglCreateContext(display, config, EGL10.EGL_NO_CONTEXT,
+                    new int[]{EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL10.EGL_NONE});
+                return requested;
             }
             @Override public EGLContext createContext(EGL10 egl, EGLDisplay display, EGLConfig config) {
                 EGLContext context = tryContext(egl, display, config, 2);
