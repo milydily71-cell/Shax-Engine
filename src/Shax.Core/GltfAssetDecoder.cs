@@ -14,6 +14,7 @@ public sealed class GltfAsset
     public List<GltfMaterial> Materials { get; } = new();
     public List<GltfAnimationClip> Animations { get; } = new();
     public List<GltfImage> Images { get; } = new();
+    public List<GltfTexture> Textures { get; } = new();
     public List<int> SceneRoots { get; } = new();
     public int ActiveSceneIndex { get; init; }
     public long SourceBytes { get; init; }
@@ -88,6 +89,13 @@ public sealed class GltfMaterial
     public Vector3 EmissiveFactor { get; init; }
     public bool DoubleSided { get; init; }
     public string AlphaMode { get; init; } = "OPAQUE";
+}
+
+public sealed class GltfTexture
+{
+    public string Name { get; init; } = "Texture";
+    public int SourceImageIndex { get; init; } = -1;
+    public int SamplerIndex { get; init; } = -1;
 }
 
 public sealed class GltfImage
@@ -351,6 +359,10 @@ public static class GltfAssetDecoder
                 imageBytes = DecodeDataUri(uriText, out mime);
             asset.Images.Add(new GltfImage { Name = name, MimeType = mime, Bytes = imageBytes });
         }
+
+        foreach (var textureJson in ReadArray(root, "textures"))
+            asset.Textures.Add(new GltfTexture { Name = Str(textureJson, "name", "Texture " + asset.Textures.Count),
+                SourceImageIndex = Int(textureJson, "source", -1), SamplerIndex = Int(textureJson, "sampler", -1) });
 
         foreach (var animJson in ReadArray(root, "animations"))
         {
