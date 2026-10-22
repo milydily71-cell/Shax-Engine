@@ -37,6 +37,7 @@ public sealed class ShaxViewport : GLSurfaceView
     }
 
     public void SetMaterial(float roughness, float metallic) => QueueEvent(() => _renderer.SetMaterial(roughness, metallic));
+    public void SetCameraMode(CameraMode mode) => QueueEvent(() => _renderer.SetCameraMode(mode));
 
     public override bool OnTouchEvent(MotionEvent? e)
     {
@@ -115,7 +116,10 @@ public sealed class ShaxViewport : GLSurfaceView
         private int _width = 1, _height = 1;
         private float _yaw = 0.65f, _pitch = 0.35f, _distance = 7.5f;
         private float _roughness = 0.28f, _metallic = 0.08f;
-        private long _startMilliseconds;
+        private CameraMode _cameraMode = CameraMode.Orbit;
+        private readonly FpsCounter _fps = new();
+        private long _startMilliseconds, _lastFrameMilliseconds;
+        private int _frameCount;
 
         public ViewportRenderer(Scene scene, Entity cubeEntity, bool forceGles30) { _scene = scene; _cubeEntity = cubeEntity; _forceGles30 = forceGles30; }
 
@@ -133,6 +137,7 @@ public sealed class ShaxViewport : GLSurfaceView
                 if (NativeInit() == 0) throw new InvalidOperationException("Native GLES renderer initialization failed.");
                 global::Android.Util.Log.Info("ShaxEngine", "Active OpenGL ES driver: " + version + ". Native libshax.so renderer initialized.");
                 _startMilliseconds = Java.Lang.JavaSystem.CurrentTimeMillis();
+                _lastFrameMilliseconds = _startMilliseconds;
                 NativeResize(_width, _height);
             }
             catch (DllNotFoundException ex)
@@ -151,15 +156,37 @@ public sealed class ShaxViewport : GLSurfaceView
 
         public void OnDrawFrame(IGL10? gl)
         {
-            _scene.Tick(1f / 60f);
+            var now = Java.Lang.JavaSystem.CurrentTimeMillis();
+            var deltaTime = Math.Clamp((now - _lastFrameMilliseconds) / 1000f, 0.001f, 0.1f);
+            _lastFrameMilliseconds = now;
+            _scene.Tick(deltaTime);
+            _fps.AddFrame(deltaTime);
+            if ((++_frameCount % 300) == 0)
+                global::Android.Util.Log.Info("ShaxEngine", $"Editor FPS={_fps.AverageFps:0.0}, frame={_fps.FrameMilliseconds:0.00} ms, physics collisions={_scene.Physics.CollisionCount}");
+
             var targetX = _cubeEntity.Transform.WorldPosition.X;
             var targetY = _cubeEntity.Transform.WorldPosition.Y;
             var targetZ = _cubeEntity.Transform.WorldPosition.Z;
             var cp = MathF.Cos(_pitch);
-            var eyeX = targetX + _distance * cp * MathF.Sin(_yaw);
-            var eyeY = targetY + _distance * MathF.Sin(_pitch);
-            var eyeZ = targetZ + _distance * cp * MathF.Cos(_yaw);
-            GLMatrix.SetLookAtM(_view, 0, eyeX, eyeY, eyeZ, targetX, targetY, targetZ, 0f, 1f, 0f);
+            float eyeX, eyeY, eyeZ, lookX, lookY, lookZ;
+            if (_cameraMode == CameraMode.FirstPerson)
+            {
+                eyeX = targetX;
+                eyeY = targetY + 1.55f;
+                eyeZ = targetZ;
+                lookX = eyeX - MathF.Sin(_yaw) * cp * 10f;
+                lookY = eyeY - MathF.Sin(_pitch) * 10f;
+                lookZ = eyeZ - MathF.Cos(_yaw) * cp * 10f;
+            }
+            else
+            {
+                var cameraDistance = _cameraMode == CameraMode.ThirdPerson ? MathF.Min(_distance, 4.5f) : _distance;
+                eyeX = targetX + cameraDistance * cp * MathF.Sin(_yaw);
+                eyeY = targetY + cameraDistance * MathF.Sin(_pitch);
+                eyeZ = targetZ + cameraDistance * cp * MathF.Cos(_yaw);
+                lookX = targetX; lookY = targetY; lookZ = targetZ;
+            }
+            GLMatrix.SetLookAtM(_view, 0, eyeX, eyeY, eyeZ, lookX, lookY, lookZ, 0f, 1f, 0f);
             GLMatrix.MultiplyMM(_viewProjection, 0, _projection, 0, _view, 0);
             if (!GLMatrix.InvertM(_inverseViewProjection, 0, _viewProjection, 0))
                 Array.Copy(_viewProjection, _inverseViewProjection, _viewProjection.Length);
@@ -168,11 +195,13 @@ public sealed class ShaxViewport : GLSurfaceView
             _cubeModel[4]=world.M21; _cubeModel[5]=world.M22; _cubeModel[6]=world.M23; _cubeModel[7]=world.M24;
             _cubeModel[8]=world.M31; _cubeModel[9]=world.M32; _cubeModel[10]=world.M33; _cubeModel[11]=world.M34;
             _cubeModel[12]=world.M41; _cubeModel[13]=world.M42; _cubeModel[14]=world.M43; _cubeModel[15]=world.M44;
-            var time = (Java.Lang.JavaSystem.CurrentTimeMillis() - _startMilliseconds) / 1000f;
+            var time = (now - _startMilliseconds) / 1000f;
             NativeSetCamera(eyeX, eyeY, eyeZ);
             NativeSetMaterial(_roughness, _metallic);
             NativeDraw(_viewProjection, _inverseViewProjection, _cubeModel, time);
         }
+
+        public void SetCameraMode(CameraMode mode) => _cameraMode = mode;
 
         public void SetMaterial(float roughness, float metallic)
         {
