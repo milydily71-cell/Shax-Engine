@@ -24,7 +24,8 @@ jobs:
       - name: Install pinned Android SDK, NDK and CMake
         run: |
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"\n          echo "$ANDROID_HOME/cmake/3.22.1/bin" >> "$GITHUB_PATH"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmake/3.22.1/bin" >> "$GITHUB_PATH"
       - name: Verify pinned toolchain
         run: |
           dotnet --info
@@ -35,9 +36,7 @@ jobs:
         run: |
           set -euxo pipefail
           for ABI in arm64-v8a x86_64; do
-            cmake -S native -B "native/build/$ABI" \
-              -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
-              -DANDROID_ABI="$ABI" -DANDROID_PLATFORM=android-24 -DCMAKE_BUILD_TYPE=Release
+            cmake -S native -B "native/build/$ABI"               -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake"               -DANDROID_ABI="$ABI" -DANDROID_PLATFORM=android-24 -DCMAKE_BUILD_TYPE=Release
             cmake --build "native/build/$ABI" --parallel 2
             mkdir -p "src/Shax.Android/native-libs/$ABI"
             cp "native/build/$ABI/libshax.so" "src/Shax.Android/native-libs/$ABI/libshax.so"
@@ -95,6 +94,13 @@ jobs:
             set -euxo pipefail
             adb install artifacts/Shax-Engine-net10-android.apk
             adb shell monkey -p com.shax.engine.dotnet 1
-            sleep 12
+            sleep 10
+            adb shell pidof com.shax.engine.dotnet
+            adb shell input keyevent HOME
+            sleep 3
+            adb shell monkey -p com.shax.engine.dotnet 1
+            sleep 10
             adb shell pidof com.shax.engine.dotnet
             adb logcat -d | grep -E 'Native libshax.so renderer initialized|ShaxNative'
+            COUNT="$(adb logcat -d | grep -c 'Native libshax.so renderer initialized' || true)"
+            test "$COUNT" -ge 2
