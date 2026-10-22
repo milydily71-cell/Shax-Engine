@@ -77,13 +77,15 @@ public sealed class CharacterController : IEntityComponent
     public bool IsGrounded { get; internal set; }
     public Vector3 Velocity { get; set; }
     public Vector3 LastMove { get; private set; }
+    internal PhysicsWorld? World { get; set; }
     public void OnAttached(Entity entity) => Entity = entity ?? throw new ArgumentNullException(nameof(entity));
     public CollisionInfo? Move(Vector3 displacement, PhysicsWorld? physics = null)
     {
         if (Entity is null) throw new InvalidOperationException("CharacterController must be attached to an entity.");
         LastMove = displacement;
-        if (physics is null) { Entity.Transform.LocalPosition += displacement; return null; }
-        return physics.MoveCharacter(this, displacement);
+        var world = physics ?? World;
+        if (world is null) { Entity.Transform.LocalPosition += displacement; return null; }
+        return world.MoveCharacter(this, displacement);
     }
 }
 
@@ -109,11 +111,16 @@ public sealed class PhysicsWorld
     public int CollisionCount { get; private set; }
     public float FixedDeltaTime { get; set; } = 1f / 60f;
     private float _accumulator;
+    private Scene? _scene;
+
+    internal void Bind(Scene scene) => _scene = scene;
 
     public void Step(Scene scene, float deltaTime)
     {
         if (scene is null) throw new ArgumentNullException(nameof(scene));
-        if (deltaTime < 0 || !float.IsFinite(deltaTime)) throw new ArgumentOutOfRangeException(nameof(deltaTime));
+        Bind(scene);
+        foreach (var controller in scene.Entities.SelectMany(e => e.Components.OfType<CharacterController>())) controller.World = this;
+        if (deltaTime < 0 || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime)) throw new ArgumentOutOfRangeException(nameof(deltaTime));
         _accumulator += MathF.Min(deltaTime, 0.25f);
         var step = Math.Clamp(FixedDeltaTime, 1f / 240f, 1f / 15f);
         var iterations = 0;
@@ -206,12 +213,21 @@ public sealed class PhysicsWorld
 
     private CollisionInfo? FindCollision(Entity entity, Collider self)
     {
-        foreach (var other in entity.Components.Count == 0 ? Array.Empty<Collider>() :
-                 entity.Components.OfType<Collider>())
+        if (_scene is null) return null;
+        foreach (var other in _scene.Entities.Where(e => e.Active && !ReferenceEquals(e, entity))
+                     .SelectMany(e => e.Components.OfType<Collider>()))
         {
-            _ = other;
+            if (other.IsTrigger || !self.Bounds.Intersects(other.Bounds)) continue;
+            var overlap = self.Bounds.Overlap(other.Bounds);
+            var delta = self.Bounds.Center - other.Bounds.Center;
+            var normal = overlap.X <= overlap.Y && overlap.X <= overlap.Z
+                ? new Vector3(delta.X < 0 ? -1 : 1, 0, 0)
+                : overlap.Y <= overlap.Z
+                    ? new Vector3(0, delta.Y < 0 ? -1 : 1, 0)
+                    : new Vector3(0, 0, delta.Z < 0 ? -1 : 1);
+            return new CollisionInfo(entity, other.Entity!, normal,
+                MathF.Max(0, MathF.Min(overlap.X, MathF.Min(overlap.Y, overlap.Z))), false);
         }
-        // Character moves are resolved against every registered collider through the current scene's registry below.
         return null;
     }
 
