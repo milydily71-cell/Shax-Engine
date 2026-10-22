@@ -36,6 +36,7 @@ public sealed class MainActivity : Activity
         toolbar.AddView(Label("SHAX ENGINE", 15, true), new LinearLayout.LayoutParams(0, -1, 1));
         AddAction(toolbar, "Scene", () => ShowWorkspace(false));
         AddAction(toolbar, "Script IDE", () => ShowWorkspace(true));
+        AddAction(toolbar, "Save", SaveScript);
         AddAction(toolbar, "Play", () =>
         {
             _scene.Tick(1f / 60f);
@@ -79,6 +80,26 @@ public sealed class MainActivity : Activity
         var button = new Button(this) { Text = text, TextSize = 10 };
         button.SetOnClickListener(new ClickAction(action));
         parent.AddView(button, new LinearLayout.LayoutParams(-2, -1));
+    }
+
+    private void SaveScript()
+    {
+        if (_scriptEditor == null)
+        {
+            if (_status != null) _status.Text = "Open Script IDE before saving.";
+            return;
+        }
+        try
+        {
+            using var stream = OpenFileOutput("PlayerScript.cs", FileCreationMode.Private);
+            using var writer = new System.IO.StreamWriter(stream);
+            writer.Write(_scriptEditor.Text ?? string.Empty);
+            if (_status != null) _status.Text = "Saved PlayerScript.cs to app-private storage";
+        }
+        catch (Exception ex)
+        {
+            if (_status != null) _status.Text = "Save failed: " + ex.Message;
+        }
     }
 
     private void ShowWorkspace(bool script)
